@@ -37,7 +37,7 @@ def get_pre(proc: hldast.Proc):
         if s.check() != z3.unsat:
             print('precondition cannot hold')
     s = z3.Solver()
-    s.add(z3.Not(assertion))
-    if s.check() != z3.unsat:
+    s.add(assertion)
+    if s.check() == z3.unsat:
         print('precondition found cannot hold')
     return z3.simplify(assertion, arith_lhs=True)
