@@ -1,0 +1,11 @@
+#pre x == 3
+#post y == 3
+proc foo(x) {
+    if x != 3 {
+        y := 2;
+    } else {
+        x := x * x;
+        z := x - 7;
+        y := z + 1;
+    }
+}

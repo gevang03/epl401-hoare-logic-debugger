@@ -3,6 +3,8 @@
 import pyparsing as pp
 from hldast import *
 
+# pp.ParserElement.enable_packrat()
+
 def infix_ctor(loc: int, tokens: pp.ParseResults):
     tokens, = tokens
     left = tokens[0]
@@ -17,7 +19,7 @@ def prefix_ctor(loc: int, tokens: pp.ParseResults):
 
 keywords = {'if', 'while', 'true', 'false', 'return'}
 
-identifier = pp.Combine(pp.Opt('$') + pp.pyparsing_common.identifier)
+identifier = pp.Regex('\\$?[a-zA-z_][a-zA-z0-9_]*')
 identifier.add_condition(lambda s: s[0] not in keywords)
 int_lit = pp.pyparsing_common.integer
 bool_lit = pp.Keyword('true') | pp.Keyword('false')
@@ -27,6 +29,8 @@ assign = pp.Suppress(':=')
 semi = pp.Suppress(';')
 left_brace = pp.Suppress('{')
 right_brace = pp.Suppress('}')
+left_paren = pp.Suppress('(')
+right_paren = pp.Suppress(')')
 
 unary_op = pp.one_of('+ - !')
 mul_op = pp.Literal('*')
@@ -71,22 +75,23 @@ while_statement = pp.Opt(invariant, None) + pp.Opt(variant, None) + keyword_whil
 while_statement.set_parse_action(lambda loc, tokens: While(loc, *tokens))
 statement <<= if_statement | while_statement | assignment
 
-params = pp.Suppress('(') + pp.Group(pp.DelimitedList(identifier)) + pp.Suppress(')')
+params = left_paren + pp.Group(pp.DelimitedList(identifier)) + right_paren
 
-proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) + keyword_proc + identifier + params + block
-
+proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) +\
+    keyword_proc + identifier + params + block
+proc.set_parse_action(lambda loc, tokens: Proc(loc, *tokens))
 parser = proc.ignore(pp.dbl_slash_comment)
-print(parser.parse_string(
-'''
-#pre x > $x0
-#post 1 == 3
-proc foo(x, y) {
-    #invariant true
-    #variant x - 1
-    while x - 1 {
-        foo := -1;
-        // comment
-        bar := 2;
-    }
-}
-'''))
+# print(parser.parse_string(
+# '''
+# #pre x > $x0
+# #post 1 == 3
+# proc foo(x, y) {
+#     #invariant true
+#     #variant x - 1
+#     while x - 1 {
+#         foo := -1;
+#         // comment
+#         bar := 2;
+#     }
+# }
+# '''))
