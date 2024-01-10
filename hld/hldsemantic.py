@@ -87,6 +87,8 @@ class __Context:
 
     def check_proc(self, proc: hldast.Proc):
         for param in proc.params:
+            if param in self.variables:
+                raise
             self.variables[param] = ValueType.Int
         if proc.pre != None and self.typeof(proc.pre) != ValueType.Bool:
             raise

@@ -75,7 +75,7 @@ while_statement = pp.Opt(invariant, None) + pp.Opt(variant, None) + keyword_whil
 while_statement.set_parse_action(lambda loc, tokens: While(loc, *tokens))
 statement <<= if_statement | while_statement | assignment
 
-params = left_paren + pp.Group(pp.DelimitedList(identifier)) + right_paren
+params = left_paren + pp.Opt(pp.Group(pp.DelimitedList(identifier)), []) + right_paren
 
 proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) +\
     keyword_proc + identifier + params + block

@@ -1,91 +1,94 @@
 #!/usr/bin/env python3
 
 from typing import NamedTuple
-from enum import IntEnum, auto
+from enum import IntEnum, auto, unique
 
+@unique
 class Opcode(IntEnum):
-    NEG = 0             # a <- -x
-    NOT = auto()        # a <- !x
-    ADD = auto()        # a <- x + y
-    SUB = auto()        # a <- x - y
-    MUL = auto()        # a <- x * y
-    LT = auto()         # a <- x < y
-    LE = auto()         # a <- x <= y
-    EQ = auto()         # a <- x == y
-    NE = auto()         # a <- x != y
-    GE = auto()         # a <- x >= y
-    GT = auto()         # a <- x > y
-    LOAD = auto()       # a <- var[x]
-    STORE = auto()      # var[x] <- a
-    CONST = auto()      # a <- x
-    JMP = auto()        # goto x
-    JMP_IF = auto()     # if a goto x
-    JMP_UNLESS = auto() # if !a goto x
+    NOP = 0             # nop
+    NEG = auto()        # stack[-1] < -stack[-1]
+    NOT = auto()        # stack[-1] <- !stack[-1]
+    ADD = auto()        # stack[-1] <- stack[-1] + value
+    SUB = auto()        # stack[-1] <- stack[-1] - value
+    MUL = auto()        # stack[-1] <- stack[-1] * value
+    LT = auto()         # stack[-1] <- stack[-1] < value
+    LE = auto()         # stack[-1] <- stack[-1] <= value
+    EQ = auto()         # stack[-1] <- stack[-1] == value
+    NE = auto()         # stack[-1] <- stack[-1] != value
+    GE = auto()         # stack[-1] <- stack[-1] >= value
+    GT = auto()         # stack[-1] <- stack[-1] > value
+    LOAD = auto()       # stack[-1] <- stack[arg]
+    STORE = auto()      # stack[arg] <- stack[-1]
+    CONST = auto()      # stack[-1] <- arg
+    JMP = auto()        # goto arg
+    JMP_IF = auto()     # if stack[-1] != 0 goto y
+    JMP_UNLESS = auto() # if stack[-1] == 0 goto y
 
-Inst = NamedTuple('Inst', op=Opcode, x=int, y=int)
+Inst = NamedTuple('Inst', op=Opcode, arg=int)
 
 class Vm:
-    def __init__(self, prog: list[Inst], regcount: int):
+    def __init__(self, prog: list[Inst]):
         self.prog = prog
-        self.regcount = regcount
 
-    def run(self):
+    def run(self, vars):
         prog = self.prog
-        regs: list[int] = [0] * self.regcount
+        stack: list[int] = [0] * len(vars)
         ip = 0
-        acc: int = 0
         length = len(prog)
+        def nop():
+            pass
         def neg():
-            nonlocal ip; nonlocal acc
-            acc = -regs[inst.x]
+            stack[-1] = -stack[-1]
         def not_():
-            nonlocal ip; nonlocal acc
-            acc = 1 if regs[inst.x] == 0 else 0
+            stack[-1] = 1 if stack[-1] == 0 else 0
         def add():
-            nonlocal ip; nonlocal acc
-            acc = regs[inst.x] + regs[inst.y]
+            value = stack.pop()
+            stack[-1] = stack[-1] + value
         def sub():
-            nonlocal ip; nonlocal acc
-            acc = regs[inst.x] - regs[inst.y]
+            value = stack.pop()
+            stack[-1] = stack[-1] - value
         def mul():
-            nonlocal ip; nonlocal acc
-            acc = regs[inst.x] * regs[inst.y]
+            value = stack.pop()
+            stack[-1] = stack[-1] * value
         def lt():
-            nonlocal ip; nonlocal acc
-            acc = int(regs[inst.x] < regs[inst.y])
+            value = stack.pop()
+            stack[-1] = int(stack[-1] < value)
         def le():
-            nonlocal ip; nonlocal acc
-            acc = int(regs[inst.x] <= regs[inst.y])
+            value = stack.pop()
+            stack[-1] = int(stack[-1] <= value)
         def eq():
-            nonlocal ip; nonlocal acc
-            acc = int(regs[inst.x] == regs[inst.y])
+            value = stack.pop()
+            stack[-1] = int(stack[-1] == value)
         def ne():
-            nonlocal ip; nonlocal acc
-            acc = int(regs[inst.x] != regs[inst.y])
+            value = stack.pop()
+            stack[-1] = int(stack[-1] != value)
         def ge():
-            nonlocal ip; nonlocal acc
-            acc = int(regs[inst.x] >= regs[inst.y])
+            value = stack.pop()
+            stack[-1] = int(stack[-1] >= value)
         def gt():
-            nonlocal ip; nonlocal acc
-            acc = int(regs[inst.x] > regs[inst.y])
+            value = stack.pop()
+            stack[-1] = int(stack[-1] > value)
         def load():
-            nonlocal ip; nonlocal acc
-            acc = regs[inst.x]
+            value = stack[inst.arg]
+            stack.append(value)
         def store():
-            nonlocal ip; nonlocal acc
-            regs[inst.x] = acc
+            value = stack.pop()
+            stack[inst.arg] = value
+        def const():
+            stack.append(inst.arg)
         def jmp():
             nonlocal ip
-            ip = inst.x - 1
+            ip = inst.arg - 1
         def jmp_if():
             nonlocal ip
-            if inst.a:
-                ip = inst.x - 1
+            if stack.pop() != 0:
+                ip = inst.arg - 1
         def jmp_unless():
             nonlocal ip
-            if not inst.a:
-                ip = inst.x - 1
+            if stack.pop() == 0:
+                ip = inst.arg - 1
         code: list = [None] * len(Opcode)
+        code[Opcode.NOP] = nop
         code[Opcode.NEG] = neg
         code[Opcode.NOT] = not_
         code[Opcode.ADD] = add
@@ -99,6 +102,7 @@ class Vm:
         code[Opcode.GT] = gt
         code[Opcode.LOAD] = load
         code[Opcode.STORE] = store
+        code[Opcode.CONST] = const
         code[Opcode.JMP] = jmp
         code[Opcode.JMP_IF] = jmp_if
         code[Opcode.JMP_UNLESS] = jmp_unless
@@ -106,4 +110,4 @@ class Vm:
             inst = prog[ip]
             code[inst.op]()
             ip += 1
-        return regs
+        return { var: stack[i] for var, i in vars.items() }
