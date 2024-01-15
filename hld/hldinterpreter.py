@@ -30,7 +30,7 @@ class Vm:
     def __init__(self, prog: list[Inst]):
         self.prog = prog
 
-    def run(self, vars):
+    def run(self, vars: dict[str, int]):
         prog = self.prog
         stack: list[int] = [0] * len(vars)
         ip = 0
@@ -110,4 +110,4 @@ class Vm:
             inst = prog[ip]
             code[inst.op]()
             ip += 1
-        return { var: stack[i] for var, i in vars.items() }
+        return { v: stack[i] for v, i in vars.items() }

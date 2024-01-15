@@ -6,18 +6,18 @@ import pyparsing
 
 def hoare_assignment(post, assignment: hldast.Assignment):
     dest = hldast.expr_to_z3(assignment.dest)
-    expr = hldast.expr_to_z3(assignment.expr)
-    return z3.substitute(post, (dest, expr))
+    value = hldast.expr_to_z3(assignment.value)
+    return z3.substitute(post, (dest, value))
 
 def hoare_ifelse(post, ifelse: hldast.IfElse):
-    truthy = hoare_block(post, ifelse.truthy)
-    falsey = hoare_block(post, ifelse.falsey)
+    truthy = hoare_block(post, ifelse.then_block)
+    falsey = hoare_block(post, ifelse.else_block)
     cond = hldast.expr_to_z3(ifelse.cond)
     return z3.And(z3.Implies(cond, truthy), z3.Implies(z3.Not(cond), falsey))
 
 def hoare_block(post, block):
     assertion = post
-    for st in reversed(block):
+    for st in reversed(block.statements):
         ty = type(st)
         if ty == hldast.Assignment:
             assertion = hoare_assignment(assertion, st)

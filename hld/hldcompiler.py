@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
-import hldast
+from functools import singledispatchmethod
+from hldast import *
 from hldinterpreter import Opcode, Inst
 
 class __Context:
-    __bin_opcodes = {
+    __bin_arith_opcodes = {
         '*': Opcode.MUL,
         '+': Opcode.ADD,
         '-': Opcode.SUB,
+    }
+    __bin_rel_opcodes = {
         '<=': Opcode.LE,
         '<': Opcode.LT,
         '>=': Opcode.GE,
@@ -34,91 +37,114 @@ class __Context:
     def emit(self, opcode: Opcode, x=0):
         self.prog.append(Inst(opcode, x))
 
-    def compile_expr(self, expr):
-        ty = type(expr)
-        if ty == str:
-            src = self.get_variable(expr)
-            self.emit(Opcode.LOAD, src)
-        elif ty == int:
-            self.emit(Opcode.CONST, expr)
-        elif ty == bool:
-            self.emit(Opcode.CONST, int(expr))
-        elif ty == hldast.Prefix:
-            op = expr.op
-            if op == '+':
-                self.compile_expr(expr.expr)
-            elif op == '-':
-                self.compile_expr(expr.expr)
-                self.emit(Opcode.NEG)
-            else:
-                assert op == '!'
-                self.compile_expr(expr.expr)
-                self.emit(Opcode.NOT)
+    @singledispatchmethod
+    def compile(self, _: ASTNode):
+        raise NotImplementedError
+
+    @compile.register
+    def _(self, expr: BoolLiteral):
+        self.emit(Opcode.CONST, int(expr.value))
+
+    @compile.register
+    def _(self, expr: IntLiteral):
+        self.emit(Opcode.CONST, expr.value)
+
+    @compile.register
+    def _(self, expr: Identifier):
+        src = self.get_variable(expr.value)
+        self.emit(Opcode.LOAD, src)
+
+    @compile.register
+    def _(self, pref: PrefixArithmeticExpr):
+        if pref.op == '+':
+            self.compile(pref.expr)
         else:
-            assert ty == hldast.Infix
-            self.compile_expr(expr.left)
-            self.compile_expr(expr.right)
-            op = expr.op
-            opcode = self.__bin_opcodes.get(op, None)
-            if opcode != None:
-                self.emit(opcode)
-                return
-            if op == '||':
-                self.compile_expr(expr.left)
-                l = len(self.prog)
-                self.emit(Opcode.JMP_IF)
-                self.compile_expr(expr.right)
-                self.backpatch(l)
-            else:
-                assert op == '&&'
-                self.compile_expr(expr.left)
-                l = len(self.prog)
-                self.emit(Opcode.JMP_UNLESS)
-                self.compile_expr(expr.right)
-                self.backpatch(l)
+            assert pref.op == '-'
+            self.compile(pref.expr)
+            self.emit(Opcode.NEG)
+
+    @compile.register
+    def _(self, pref: PrefixLogicalExpr):
+        assert pref.op == '!'
+        self.compile(pref.expr)
+        self.emit(Opcode.NOT)
+
+    @compile.register
+    def _(self, expr: InfixArithmeticExpr):
+        self.compile(expr.left)
+        self.compile(expr.right)
+        opcode = self.__bin_arith_opcodes[expr.op]
+        self.emit(opcode)
+
+    @compile.register
+    def _(self, expr: InfixRelationalExpr):
+        self.compile(expr.left)
+        self.compile(expr.right)
+        opcode = self.__bin_rel_opcodes[expr.op]
+        self.emit(opcode)
+
+    @compile.register
+    def _(self, expr: InfixLogicalExpr):
+        if expr.op == '||':
+            self.compile(expr.left)
+            l = len(self.prog)
+            self.emit(Opcode.JMP_IF)
+            self.compile(expr.right)
+            self.backpatch(l)
+        else:
+            assert expr.op == '&&'
+            self.compile(expr.left)
+            l = len(self.prog)
+            self.emit(Opcode.JMP_UNLESS)
+            self.compile(expr.right)
+            self.backpatch(l)
+
+    @compile.register
+    def _(self, assignment: Assignment):
+        self.compile(assignment.value)
+        dest = self.get_variable(assignment.dest.value)
+        self.emit(Opcode.STORE, dest)
+
+    @compile.register
+    def _(self, ifelse: IfElse):
+        self.compile(ifelse.cond)
+        l0 = len(self.prog)
+        self.emit(Opcode.JMP_UNLESS)
+        self.compile(ifelse.then_block)
+        l1 = len(self.prog)
+        self.emit(Opcode.JMP)
+        self.backpatch(l0)
+        self.compile(ifelse.else_block)
+        self.backpatch(l1)
+
+    @compile.register
+    def _(self, while_: While):
+        l0 = len(self.prog)
+        self.compile(while_.cond)
+        l1 = len(self.prog)
+        self.emit(Opcode.JMP_UNLESS)
+        self.compile(while_.body)
+        self.emit(Opcode.JMP, l0)
+        self.backpatch(l1)
+
+    @compile.register
+    def _(self, block: Block):
+        for statement in block.statements:
+            self.compile(statement)
+
+    @compile.register
+    def _(self, proc: Proc):
+        for param in proc.params:
+            self.allocate_variable(param.value)
+        self.compile(proc.body)
+        self.emit(Opcode.NOP)
 
     def backpatch(self, inst: int, to: int | None = None):
         if to == None:
             to = len(self.prog)
         self.prog[inst] = Inst(self.prog[inst].op, to)
 
-    def compile_proc(self, proc: hldast.Proc):
-        for param in proc.params:
-            self.allocate_variable(param)
-        self.compile_block(proc.body)
-        self.emit(Opcode.NOP)
-
-    def compile_statement(self, statement):
-        ty = type(statement)
-        if ty == hldast.Assignment:
-            self.compile_expr(statement.expr)
-            dest = self.get_variable(statement.dest)
-            self.emit(Opcode.STORE, dest)
-        elif ty == hldast.IfElse:
-            self.compile_expr(statement.cond)
-            l0 = len(self.prog)
-            self.emit(Opcode.JMP_UNLESS)
-            self.compile_block(statement.truthy)
-            l1 = len(self.prog)
-            self.emit(Opcode.JMP)
-            self.backpatch(l0)
-            self.compile_block(statement.falsey)
-            self.backpatch(l1)
-        else:
-            assert ty == hldast.While
-            l0 = len(self.prog)
-            self.compile_expr(statement.cond)
-            l1 = len(self.prog)
-            self.emit(Opcode.JMP_UNLESS)
-            self.compile_block(statement.body)
-            self.emit(Opcode.JMP, l0)
-            self.backpatch(l1)
-
-    def compile_block(self, block):
-        for statement in block:
-            self.compile_statement(statement)
-
-def compile_proc(proc: hldast.Proc) -> tuple[dict[str, int], list[Inst]]:
+def compile_proc(proc: Proc) -> tuple[dict[str, int], list[Inst]]:
     ctx = __Context()
-    ctx.compile_proc(proc)
+    ctx.compile(proc)
     return ctx.vars, ctx.prog

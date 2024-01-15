@@ -47,15 +47,15 @@ def main(argv: list[str]) -> None | int:
         return 1
     proc, = hldparser.parser.parse_file(args[1], parse_all=True)
     assert type(proc) == hldast.Proc
-    hldsemantic.check_proc(src, proc)
+    hldsemantic.check_declaration(proc)
     if options.run:
+        assert type(proc) == hldast.Proc
         vars, prog = hldcompiler.compile_proc(proc)
         vm = hldinterpreter.Vm(prog)
         result = vm.run(vars)
         print(result)
     elif options.dis:
         vars, prog = hldcompiler.compile_proc(proc)
-        vm = hldinterpreter.Vm(prog)
         for i, (opcode, arg) in enumerate(prog):
             print(f'{i:04x} {opcode.name} {arg:x}')
     else:
