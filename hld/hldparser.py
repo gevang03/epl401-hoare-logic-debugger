@@ -3,7 +3,7 @@
 import pyparsing as pp
 from hldast import *
 
-# pp.ParserElement.enable_packrat()
+pp.ParserElement.enable_packrat()
 
 _infix_arith_ops = { '+', '-', '*' }
 _infix_log_ops = { '&&', '||' }
@@ -91,12 +91,12 @@ assignment = identifier - assign - expr - semi
 assignment.set_parse_action(lambda s, loc, tokens: Assignment(s, loc, tokens[0], tokens[1]))
 block = left_brace - pp.Group(statement[...], True) - right_brace
 block.set_parse_action(lambda s, loc, tokens: Block(s, loc, *tokens))
-if_statement = pp.Forward()
-if_statement <<= keyword_if - expr - block - keyword_else - (if_statement | block)
-if_statement.set_parse_action(lambda s, loc, tokens: IfElse(s, loc, *tokens))
-while_statement = pp.Opt(invariant, None) + pp.Opt(variant, None) + keyword_while - expr - block
-while_statement.set_parse_action(lambda s, loc, tokens: While(s, loc, *tokens))
-statement <<= if_statement | while_statement | assignment
+ifelse = pp.Forward()
+ifelse <<= keyword_if - expr - block - keyword_else - (ifelse | block)
+ifelse.set_parse_action(lambda s, loc, tokens: IfElse(s, loc, *tokens))
+while_ = pp.Opt(invariant, None) + pp.Opt(variant, None) + keyword_while - expr - block
+while_.set_parse_action(lambda s, loc, tokens: While(s, loc, *tokens))
+statement <<= ifelse | while_ | assignment
 
 params = left_paren - pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) - right_paren
 
