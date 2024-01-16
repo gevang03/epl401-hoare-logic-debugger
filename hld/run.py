@@ -39,15 +39,13 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
 
 def main(argv: list[str]) -> None | int:
     options, args = parse_args(argv)
-    try:
-        with open(args[1]) as f:
-            src = f.read()
-    except Exception as e:
-        print(e, file=sys.stderr)
-        return 1
     proc, = hldparser.parser.parse_file(args[1], parse_all=True)
     assert type(proc) == hldast.Proc
-    hldsemantic.check_declaration(proc)
+    try:
+        hldsemantic.check_declaration(proc)
+    except RuntimeError as e:
+        print(f'{args[1]}: {e.args[0]}')
+        return 1
     if options.run:
         assert type(proc) == hldast.Proc
         vars, prog = hldcompiler.compile_proc(proc)

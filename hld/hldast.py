@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
 import dataclasses
-import operator
 import pyparsing
-import z3
 
 from abc import ABC
 from dataclasses import dataclass
 from operator import attrgetter
-from functools import cache, singledispatch
 
 @dataclass(frozen=True, repr=False)
 class ASTNode(ABC):
@@ -17,8 +14,9 @@ class ASTNode(ABC):
 
     def message(self, type: str, msg: str) -> str:
         lineno = pyparsing.lineno(self.loc, self.src)
-        col = pyparsing.lineno(self.loc, self.src)
-        return f'<filename>: {lineno}:{col}: {type}: {msg}'
+        col = pyparsing.col(self.loc, self.src)
+        line = pyparsing.line(self.loc, self.src)
+        return f'{lineno}:{col}: {type}: {msg}\n{line}'
 
     def error(self, msg: str) -> str:
         return self.message('error', msg)
@@ -110,76 +108,3 @@ class Proc(Declaration):
     name: Identifier
     params: list[Identifier]
     body: Block
-
-@singledispatch
-@cache
-def expr_to_z3(_: Expr) -> z3.BoolRef | z3.ArithRef:
-    raise NotImplementedError
-
-@expr_to_z3.register
-def _(expr: BoolLiteral) -> z3.BoolRef:
-    return z3.BoolVal(expr.value)
-
-@expr_to_z3.register
-def _(expr: IntLiteral) -> z3.IntNumRef:
-    return z3.IntVal(expr.value)
-
-@expr_to_z3.register
-def _(expr: Identifier) -> z3.ArithRef:
-    return z3.Int(expr.value)
-
-@expr_to_z3.register
-def _(pref: PrefixArithmeticExpr) -> z3.ArithRef:
-    expr = expr_to_z3(pref.expr)
-    assert isinstance(expr, z3.ArithRef)
-    if pref.op == '+':
-        return +expr
-    else:
-        assert pref.op == '-'
-        return -expr
-
-@expr_to_z3.register
-def _(pref: PrefixLogicalExpr) -> z3.BoolRef:
-    expr = expr_to_z3(pref.expr)
-    assert isinstance(expr, z3.BoolRef)
-    assert pref.op == '!'
-    res = z3.Not(expr)
-    assert isinstance(res, z3.BoolRef)
-    return res
-
-@expr_to_z3.register
-def _(expr: InfixArithmeticExpr) -> z3.ArithRef:
-    left = expr_to_z3(expr.left)
-    assert isinstance(left, z3.ArithRef)
-    right = expr_to_z3(expr.right)
-    assert isinstance(right, z3.ArithRef)
-    ops = { '*': operator.mul, '+': operator.add, '-': operator.sub }
-    res = ops[expr.op](left, right)
-    assert isinstance(res, z3.ArithRef)
-    return res
-
-@expr_to_z3.register
-def _(expr: InfixLogicalExpr) -> z3.BoolRef:
-    left = expr_to_z3(expr.left)
-    assert isinstance(left, z3.BoolRef)
-    right = expr_to_z3(expr.right)
-    assert isinstance(right, z3.BoolRef)
-    ops = { '&&': z3.And, '||': z3.Or }
-    res = ops[expr.op](left, right)
-    assert isinstance(res, z3.BoolRef)
-    return res
-
-@expr_to_z3.register
-def _(expr: InfixRelationalExpr) -> z3.BoolRef:
-    left = expr_to_z3(expr.left)
-    assert isinstance(left, z3.ArithRef)
-    right = expr_to_z3(expr.right)
-    assert isinstance(right, z3.ArithRef)
-    ops = { 
-        '<=': operator.le, '<': operator.lt,
-        '>=': operator.ge, '>': operator.gt,
-        '==': operator.eq, '!=': operator.ne
-    }
-    res = ops[expr.op](left, right)
-    assert isinstance(res, z3.BoolRef)
-    return res

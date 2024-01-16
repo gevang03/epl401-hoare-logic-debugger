@@ -81,27 +81,27 @@ assoc_table = [
 ]
 expr = pp.infix_notation(int_lit | bool_lit | identifier, assoc_table)
 
-precondition = keyword_pre + expr
-postcondition = keyword_post + expr
-invariant = keyword_invariant + expr
-variant = keyword_variant + expr
+precondition = keyword_pre - expr
+postcondition = keyword_post - expr
+invariant = keyword_invariant - expr
+variant = keyword_variant - expr
 
 statement = pp.Forward()
-assignment = identifier + assign + expr + semi
+assignment = identifier - assign - expr - semi
 assignment.set_parse_action(lambda s, loc, tokens: Assignment(s, loc, tokens[0], tokens[1]))
-block = left_brace + pp.Group(statement[...], True) + right_brace
+block = left_brace - pp.Group(statement[...], True) - right_brace
 block.set_parse_action(lambda s, loc, tokens: Block(s, loc, *tokens))
 if_statement = pp.Forward()
-if_statement <<= keyword_if + expr + block + keyword_else + (if_statement | block)
+if_statement <<= keyword_if - expr - block - keyword_else - (if_statement | block)
 if_statement.set_parse_action(lambda s, loc, tokens: IfElse(s, loc, *tokens))
-while_statement = pp.Opt(invariant, None) + pp.Opt(variant, None) + keyword_while + expr + block
+while_statement = pp.Opt(invariant, None) + pp.Opt(variant, None) + keyword_while - expr - block
 while_statement.set_parse_action(lambda s, loc, tokens: While(s, loc, *tokens))
 statement <<= if_statement | while_statement | assignment
 
-params = left_paren + pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) + right_paren
+params = left_paren - pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) - right_paren
 
 proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) +\
-    keyword_proc + identifier + params + block
+    keyword_proc - identifier - params - block
 proc.set_parse_action(lambda s, loc, tokens: Proc(s, loc, *tokens))
 parser = proc.ignore(pp.dbl_slash_comment)
 # print(parser.parse_string(
