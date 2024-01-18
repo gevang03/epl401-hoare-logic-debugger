@@ -65,7 +65,7 @@ def _(expr: InfixLogicalExpr) -> z3.BoolRef:
     assert isinstance(res, z3.BoolRef)
     return res
 
-_infix_rel_ops = { 
+_infix_rel_ops = {
     '<=': operator.le, '<': operator.lt,
     '>=': operator.ge, '>': operator.gt,
     '==': operator.eq, '!=': operator.ne
@@ -108,6 +108,25 @@ def _(block: Block, post: z3.BoolRef) -> z3.BoolRef:
     for statement in reversed(block.statements):
         assertion = hoare_propagate(statement, assertion)
     return assertion
+
+# NOTE: partial only
+@hoare_propagate.register
+def _(while_: While, post: z3.BoolRef) -> z3.BoolRef:
+    invariant = expr_to_z3(while_.invariant)
+    cond = expr_to_z3(while_.cond)
+    impl = z3.Implies(z3.And(invariant, z3.Not(cond)), post)
+    s = z3.Solver()
+    s.add(z3.Not(impl))
+    if s.check() != z3.unsat:
+        raise RuntimeError('invariant and guard negation does not imply postcondition')
+    body_pre = hoare_propagate(while_.body, post)
+    start = z3.And(invariant, cond)
+    assert isinstance(start, z3.BoolRef)
+    s.reset()
+    s.add(z3.Not(z3.Implies(body_pre, start)))
+    if s.check() != z3.unsat:
+        raise RuntimeError('invariand and guard does not imply pre condition')
+    return start
 
 def get_pre(proc: Proc):
     post = expr_to_z3(proc.post)
