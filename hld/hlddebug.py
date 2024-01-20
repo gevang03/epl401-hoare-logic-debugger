@@ -113,20 +113,18 @@ def _(block: Block, post: z3.BoolRef) -> z3.BoolRef:
 @hoare_propagate.register
 def _(while_: While, post: z3.BoolRef) -> z3.BoolRef:
     invariant = expr_to_z3(while_.invariant)
+    assert isinstance(invariant, z3.BoolRef)
     cond = expr_to_z3(while_.cond)
-    impl = z3.Implies(z3.And(invariant, z3.Not(cond)), post)
     s = z3.Solver()
-    s.add(z3.Not(impl))
+    s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
     if s.check() != z3.unsat:
-        raise RuntimeError('invariant and guard negation does not imply postcondition')
-    body_pre = hoare_propagate(while_.body, post)
-    start = z3.And(invariant, cond)
-    assert isinstance(start, z3.BoolRef)
+        raise RuntimeError(f'invariant and guard negation, does not imply postcondition')
+    body_pre = hoare_propagate(while_.body, invariant)
     s.reset()
-    s.add(z3.Not(z3.Implies(body_pre, start)))
+    s.add(z3.And(invariant, cond, z3.Not(body_pre)))
     if s.check() != z3.unsat:
-        raise RuntimeError('invariand and guard does not imply pre condition')
-    return start
+        raise RuntimeError('invariant and guard does not imply precondition')
+    return invariant
 
 def get_pre(proc: Proc):
     post = expr_to_z3(proc.post)
@@ -142,3 +140,11 @@ def get_pre(proc: Proc):
     if s.check() == z3.unsat:
         print('precondition found cannot hold')
     return z3.simplify(assertion, arith_lhs=True)
+
+def _prove(p: z3.BoolRef) -> bool:
+    s = z3.Solver()
+    s.set(auto_config=False, mbqi=False)
+    s.add(z3.Not(p))
+    res = s.check()
+    assert res != z3.unknown
+    return res == z3.unsat

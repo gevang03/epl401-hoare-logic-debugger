@@ -1,0 +1,7 @@
+#post x == 10
+proc foo(x) {
+    #invariant x <= 10
+    while x < 10 {
+        x := x + 1;
+    }
+}
