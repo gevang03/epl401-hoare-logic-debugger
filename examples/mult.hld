@@ -1,0 +1,11 @@
+#post z == x * y
+proc mult(x, y) {
+    a := 0;
+    z := 0;
+    #invariant x * y == z + x * (y - a)
+    #variant y - a
+    while a != y {
+        z := z + x;
+        a := a + 1;
+    }
+}

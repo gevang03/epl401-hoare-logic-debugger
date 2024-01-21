@@ -109,22 +109,47 @@ def _(block: Block, post: z3.BoolRef) -> z3.BoolRef:
         assertion = hoare_propagate(statement, assertion)
     return assertion
 
-# NOTE: partial only
 @hoare_propagate.register
 def _(while_: While, post: z3.BoolRef) -> z3.BoolRef:
     invariant = expr_to_z3(while_.invariant)
     assert isinstance(invariant, z3.BoolRef)
     cond = expr_to_z3(while_.cond)
     s = z3.Solver()
+    # (invariant && !cond) -> post
     s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
     if s.check() != z3.unsat:
         raise RuntimeError(f'invariant and guard negation, does not imply postcondition')
     body_pre = hoare_propagate(while_.body, invariant)
     s.reset()
+    # (invariant && cond) -> body_pre
     s.add(z3.And(invariant, cond, z3.Not(body_pre)))
     if s.check() != z3.unsat:
         raise RuntimeError('invariant and guard does not imply precondition')
     return invariant
+
+# TODO: attach this to the rest of the program
+def _total_while(while_: While, post: z3.BoolRef) -> z3.BoolRef:
+    invariant = expr_to_z3(while_.invariant)
+    variant = expr_to_z3(while_.variant)
+    assert isinstance(variant, z3.ArithRef)
+    assert isinstance(invariant, z3.BoolRef)
+    cond = expr_to_z3(while_.cond)
+    pre = z3.And(invariant, 0 <= variant)
+    assert isinstance(pre, z3.BoolRef)
+    s = z3.Solver()
+    # (invariant && !cond) -> post
+    s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
+    if s.check() != z3.unsat:
+        raise RuntimeError(f'invariant and guard negation, does not imply postcondition')
+    upper = z3.FreshInt('e')
+    body_post = z3.And(pre, variant < upper)
+    body_pre = hoare_propagate(while_.body, body_post)
+    s.reset()
+    # (invariant && cond && 0 <= variant = upper) -> body_pre
+    s.add(z3.And(pre, cond, variant == upper, z3.Not(body_pre)))
+    if s.check() != z3.unsat:
+        raise RuntimeError('invariant and guard and variant does not imply precondition')
+    return pre
 
 def get_pre(proc: Proc):
     post = expr_to_z3(proc.post)
