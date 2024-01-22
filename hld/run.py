@@ -57,8 +57,8 @@ def main(argv: list[str]) -> None | int:
         for i, (opcode, arg) in enumerate(prog):
             print(f'{i:04x} {opcode.name} {arg:x}')
     else:
-        assert options.correctness == 'partial'
-        pre = hlddebug.get_pre(proc)
+        correctness = hlddebug.Correctness(options.correctness)
+        pre = hlddebug.get_pre(proc, correctness)
         print(f'#pre {pre}')
 
 if __name__ == '__main__':

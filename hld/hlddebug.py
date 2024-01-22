@@ -2,7 +2,8 @@
 
 import operator
 import z3
-from functools import singledispatch, cache
+from enum import Enum
+from functools import cache, singledispatch, singledispatchmethod
 from hldast import *
 
 @singledispatch
@@ -81,79 +82,94 @@ def _(expr: InfixRelationalExpr) -> z3.BoolRef:
     assert isinstance(res, z3.BoolRef)
     return res
 
-@singledispatch
-def hoare_propagate(_: Statement, _post: z3.BoolRef) -> z3.BoolRef:
-    raise NotImplementedError
+class Correctness(Enum):
+    PARTIAL = 'partial'
+    TOTAL = 'total'
 
-@hoare_propagate.register
-def _(assignment: Assignment, post: z3.BoolRef) -> z3.BoolRef:
-    dest = expr_to_z3(assignment.dest)
-    value = expr_to_z3(assignment.value)
-    res = z3.substitute(post, (dest, value))
-    assert isinstance(res, z3.BoolRef)
-    return res
+class __Context:
+    def __init__(self, correctness: Correctness):
+        self.correctness = correctness
 
-@hoare_propagate.register
-def _(ifelse: IfElse, post: z3.BoolRef) -> z3.BoolRef:
-    then_block = hoare_propagate(ifelse.then_block, post)
-    else_block = hoare_propagate(ifelse.else_block, post)
-    cond = expr_to_z3(ifelse.cond)
-    res = z3.And(z3.Implies(cond, then_block), z3.Implies(z3.Not(cond), else_block))
-    assert isinstance(res, z3.BoolRef)
-    return res
+    @singledispatchmethod
+    def propagate(self, _: Statement, _post: z3.BoolRef) -> z3.BoolRef:
+        raise NotImplementedError
 
-@hoare_propagate.register
-def _(block: Block, post: z3.BoolRef) -> z3.BoolRef:
-    assertion = post
-    for statement in reversed(block.statements):
-        assertion = hoare_propagate(statement, assertion)
-    return assertion
+    @propagate.register
+    def _(self, assignment: Assignment, post: z3.BoolRef) -> z3.BoolRef:
+        dest = expr_to_z3(assignment.dest)
+        value = expr_to_z3(assignment.value)
+        res = z3.substitute(post, (dest, value))
+        assert isinstance(res, z3.BoolRef)
+        return res
 
-@hoare_propagate.register
-def _(while_: While, post: z3.BoolRef) -> z3.BoolRef:
-    invariant = expr_to_z3(while_.invariant)
-    assert isinstance(invariant, z3.BoolRef)
-    cond = expr_to_z3(while_.cond)
-    s = z3.Solver()
-    # (invariant && !cond) -> post
-    s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
-    if s.check() != z3.unsat:
-        raise RuntimeError(f'invariant and guard negation, does not imply postcondition')
-    body_pre = hoare_propagate(while_.body, invariant)
-    s.reset()
-    # (invariant && cond) -> body_pre
-    s.add(z3.And(invariant, cond, z3.Not(body_pre)))
-    if s.check() != z3.unsat:
-        raise RuntimeError('invariant and guard does not imply precondition')
-    return invariant
+    @propagate.register
+    def _(self, ifelse: IfElse, post: z3.BoolRef) -> z3.BoolRef:
+        then_block = self.propagate(ifelse.then_block, post)
+        else_block = self.propagate(ifelse.else_block, post)
+        cond = expr_to_z3(ifelse.cond)
+        res = z3.And(z3.Implies(cond, then_block), z3.Implies(z3.Not(cond), else_block))
+        assert isinstance(res, z3.BoolRef)
+        return res
 
-# TODO: attach this to the rest of the program
-def _total_while(while_: While, post: z3.BoolRef) -> z3.BoolRef:
-    invariant = expr_to_z3(while_.invariant)
-    variant = expr_to_z3(while_.variant)
-    assert isinstance(variant, z3.ArithRef)
-    assert isinstance(invariant, z3.BoolRef)
-    cond = expr_to_z3(while_.cond)
-    pre = z3.And(invariant, 0 <= variant)
-    assert isinstance(pre, z3.BoolRef)
-    s = z3.Solver()
-    # (invariant && !cond) -> post
-    s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
-    if s.check() != z3.unsat:
-        raise RuntimeError(f'invariant and guard negation, does not imply postcondition')
-    upper = z3.FreshInt('e')
-    body_post = z3.And(pre, variant < upper)
-    body_pre = hoare_propagate(while_.body, body_post)
-    s.reset()
-    # (invariant && cond && 0 <= variant = upper) -> body_pre
-    s.add(z3.And(pre, cond, variant == upper, z3.Not(body_pre)))
-    if s.check() != z3.unsat:
-        raise RuntimeError('invariant and guard and variant does not imply precondition')
-    return pre
+    @propagate.register
+    def _(self, block: Block, post: z3.BoolRef) -> z3.BoolRef:
+        assertion = post
+        for statement in reversed(block.statements):
+            assertion = self.propagate(statement, assertion)
+        return assertion
 
-def get_pre(proc: Proc):
+    @propagate.register
+    def _(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
+        if self.correctness == Correctness.PARTIAL:
+            return self._partial_while(while_, post)
+        else:
+            assert self.correctness == Correctness.TOTAL
+            return self._total_while(while_, post)
+
+    def _partial_while(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
+        invariant = expr_to_z3(while_.invariant)
+        assert isinstance(invariant, z3.BoolRef)
+        cond = expr_to_z3(while_.cond)
+        s = z3.Solver()
+        # (invariant && !cond) -> post
+        s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
+        if s.check() != z3.unsat:
+            raise RuntimeError(f'invariant and guard negation, does not imply postcondition')
+        body_pre = self.propagate(while_.body, invariant)
+        s.reset()
+        # (invariant && cond) -> body_pre
+        s.add(z3.And(invariant, cond, z3.Not(body_pre)))
+        if s.check() != z3.unsat:
+            raise RuntimeError('invariant and guard does not imply precondition')
+        return invariant
+
+    def _total_while(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
+        invariant = expr_to_z3(while_.invariant)
+        variant = expr_to_z3(while_.variant)
+        assert isinstance(variant, z3.ArithRef)
+        assert isinstance(invariant, z3.BoolRef)
+        cond = expr_to_z3(while_.cond)
+        pre = z3.And(invariant, 0 <= variant)
+        assert isinstance(pre, z3.BoolRef)
+        s = z3.Solver()
+        # (invariant && !cond) -> post
+        s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
+        if s.check() != z3.unsat:
+            raise RuntimeError(f'invariant and guard negation, does not imply postcondition')
+        upper = z3.FreshInt('e')
+        body_post = z3.And(pre, variant < upper)
+        body_pre = self.propagate(while_.body, body_post)
+        s.reset()
+        # (invariant && cond && 0 <= variant = upper) -> body_pre
+        s.add(z3.And(pre, cond, variant == upper, z3.Not(body_pre)))
+        if s.check() != z3.unsat:
+            raise RuntimeError('invariant and guard and variant does not imply precondition')
+        return pre
+
+def get_pre(proc: Proc, correctness: Correctness):
+    ctx = __Context(correctness)
     post = expr_to_z3(proc.post)
-    assertion = hoare_propagate(proc.body, post)
+    assertion = ctx.propagate(proc.body, post)
     if proc.pre != None:
         s = z3.Solver()
         pre = expr_to_z3(proc.pre)
