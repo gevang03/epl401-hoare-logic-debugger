@@ -37,7 +37,7 @@ def prefix_ctor(src: str, loc: int, tokens: pp.ParseResults) -> PrefixExpr:
         assert op == '!'
         return PrefixLogicalExpr(src, loc, op, expr)
 
-keywords = {'if', 'while', 'true', 'false', 'return'}
+keywords = {'if', 'else', 'proc', 'while', 'true', 'false', 'return'}
 
 identifier = pp.Regex('\\$?[a-zA-z_][a-zA-z0-9_]*')
 identifier.add_condition(lambda s: s[0] not in keywords)
@@ -104,17 +104,3 @@ proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) +\
     keyword_proc - identifier - params - block
 proc.set_parse_action(lambda s, loc, tokens: Proc(s, loc, *tokens))
 parser = proc.ignore(pp.dbl_slash_comment)
-# print(parser.parse_string(
-# '''
-# #pre x > $x0
-# #post 1 == 3
-# proc foo(x, y) {
-#     #invariant true
-#     #variant x - 1
-#     while x - 1 {
-#         foo := -1;
-#         // comment
-#         bar := 2;
-#     }
-# }
-# '''))

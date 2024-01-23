@@ -37,6 +37,42 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
                  )
     return p.parse_args(argv)
 
+def run(filename: str) -> None | int:
+    proc, = hldparser.parser.parse_file(filename, parse_all=True)
+    assert type(proc) == hldast.Proc
+    try:
+        hldsemantic.check_declaration(proc)
+    except RuntimeError as e:
+        print(f'{filename}: {e.args[0]}')
+        return 1
+    vars, prog = hldcompiler.compile_proc(proc)
+    vm = hldinterpreter.Vm(prog)
+    result = vm.run(vars)
+    print(result)
+
+def dis(filename: str) -> None | int:
+    proc, = hldparser.parser.parse_file(filename, parse_all=True)
+    assert type(proc) == hldast.Proc
+    try:
+        hldsemantic.check_declaration(proc)
+    except RuntimeError as e:
+        print(f'{filename}: {e.args[0]}')
+        return 1
+    _, prog = hldcompiler.compile_proc(proc)
+    for i, (opcode, arg) in enumerate(prog):
+        print(f'{i:04x} {opcode.name} {arg:04x}')
+
+def debug(filename: str, correctness: hlddebug.Correctness):
+    proc, = hldparser.parser.parse_file(filename, parse_all=True)
+    assert type(proc) == hldast.Proc
+    try:
+        hldsemantic.check_declaration(proc)
+    except RuntimeError as e:
+        print(f'{filename}: {e.args[0]}')
+        return 1
+    pre = hlddebug.get_pre(proc, correctness)
+    print(f'#pre {pre}')
+
 def main(argv: list[str]) -> None | int:
     options, args = parse_args(argv)
     proc, = hldparser.parser.parse_file(args[1], parse_all=True)
@@ -47,19 +83,12 @@ def main(argv: list[str]) -> None | int:
         print(f'{args[1]}: {e.args[0]}')
         return 1
     if options.run:
-        assert type(proc) == hldast.Proc
-        vars, prog = hldcompiler.compile_proc(proc)
-        vm = hldinterpreter.Vm(prog)
-        result = vm.run(vars)
-        print(result)
+        return run(args[1])
     elif options.dis:
-        vars, prog = hldcompiler.compile_proc(proc)
-        for i, (opcode, arg) in enumerate(prog):
-            print(f'{i:04x} {opcode.name} {arg:x}')
+        return dis(args[1])
     else:
         correctness = hlddebug.Correctness(options.correctness)
-        pre = hlddebug.get_pre(proc, correctness)
-        print(f'#pre {pre}')
+        return debug(args[1], correctness)
 
 if __name__ == '__main__':
     status = main(sys.argv)
