@@ -37,14 +37,19 @@ def prefix_ctor(src: str, loc: int, tokens: pp.ParseResults) -> PrefixExpr:
         assert op == '!'
         return PrefixLogicalExpr(src, loc, op, expr)
 
-keywords = {'if', 'else', 'proc', 'while', 'true', 'false', 'return'}
+keywords = {
+    'if', 'else', 'proc', 'while', 'true', 'false', 'return',
+    '#pre', '#post', '#invariant', '#variant'
+}
+kw = {k: pp.Keyword(k) for k in keywords}
+sup_kw = {k: pp.Suppress(v) for k, v in kw.items()}
 
 identifier = pp.Regex('\\$?[a-zA-z_][a-zA-z0-9_]*')
 identifier.add_condition(lambda s: s[0] not in keywords)
 identifier.set_parse_action(lambda s, loc, toks: Identifier(s, loc, toks[0]))
 int_lit = pp.pyparsing_common.integer.copy()
 int_lit.set_parse_action(lambda s, loc, toks: IntLiteral(s, loc, int(toks[0])))
-bool_lit = pp.Keyword('true') | pp.Keyword('false')
+bool_lit = kw['true'] | kw['false']
 bool_lit.set_parse_action(lambda s, loc, toks: BoolLiteral(s, loc, toks[0] == 'true'))
 
 assign = pp.Suppress(':=')
@@ -61,16 +66,6 @@ cmp_op = pp.one_of('<= < >= > == !=')
 and_op = pp.Literal('&&')
 or_op = pp.Literal('||')
 
-keyword_if = pp.Suppress(pp.Keyword('if'))
-keyword_else = pp.Suppress(pp.Keyword('else'))
-keyword_while = pp.Suppress(pp.Keyword('while'))
-
-keyword_pre = pp.Suppress(pp.Keyword('#pre'))
-keyword_post = pp.Suppress(pp.Keyword('#post'))
-keyword_invariant = pp.Suppress(pp.Keyword('#invariant'))
-keyword_variant = pp.Suppress(pp.Keyword('#variant'))
-keyword_proc = pp.Suppress(pp.Keyword('proc'))
-
 assoc_table = [
     (unary_op, 1, pp.OpAssoc.RIGHT, prefix_ctor),
     (mul_op, 2, pp.OpAssoc.LEFT, infix_ctor),
@@ -81,10 +76,10 @@ assoc_table = [
 ]
 expr = pp.infix_notation(int_lit | bool_lit | identifier, assoc_table)
 
-precondition = keyword_pre - expr
-postcondition = keyword_post - expr
-invariant = keyword_invariant - expr
-variant = keyword_variant - expr
+precondition = sup_kw['#pre'] - expr
+postcondition = sup_kw['#post'] - expr
+invariant = sup_kw['#invariant'] - expr
+variant = sup_kw['#variant'] - expr
 
 statement = pp.Forward()
 assignment = identifier - assign - expr - semi
@@ -92,15 +87,15 @@ assignment.set_parse_action(lambda s, loc, tokens: Assignment(s, loc, tokens[0],
 block = left_brace - pp.Group(statement[...], True) - right_brace
 block.set_parse_action(lambda s, loc, tokens: Block(s, loc, *tokens))
 ifelse = pp.Forward()
-ifelse <<= keyword_if - expr - block - keyword_else - (ifelse | block)
+ifelse <<= sup_kw['if'] - expr - block - sup_kw['else'] - (ifelse | block)
 ifelse.set_parse_action(lambda s, loc, tokens: IfElse(s, loc, *tokens))
-while_ = pp.Opt(invariant, None) + pp.Opt(variant, None) + keyword_while - expr - block
+while_ = pp.Opt(invariant, None) + pp.Opt(variant, None) + sup_kw['while'] - expr - block
 while_.set_parse_action(lambda s, loc, tokens: While(s, loc, *tokens))
 statement <<= ifelse | while_ | assignment
 
 params = left_paren - pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) - right_paren
 
 proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) +\
-    keyword_proc - identifier - params - block
+    sup_kw['proc'] - identifier - params - block
 proc.set_parse_action(lambda s, loc, tokens: Proc(s, loc, *tokens))
 parser = proc.ignore(pp.dbl_slash_comment)
