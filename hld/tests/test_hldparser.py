@@ -73,5 +73,8 @@ class TestHldParser(unittest.TestCase):
     def test_while(self):
         self._test(hldparser.while_, 'while false {}', hldast.While, {'cond.value': False})
 
+    def test_assert(self):
+        self._test(hldparser.assert_, 'assert false;', hldast.Assert, {'expr.value': False})
+
     def test_proc(self):
         self._test(hldparser.proc, 'proc foo() {}', hldast.Proc, {'name.value': 'foo'})

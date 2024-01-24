@@ -38,7 +38,7 @@ def prefix_ctor(src: str, loc: int, tokens: pp.ParseResults) -> PrefixExpr:
         return PrefixLogicalExpr(src, loc, op, expr)
 
 keywords = {
-    'if', 'else', 'proc', 'while', 'true', 'false', 'return',
+    'assert', 'if', 'else', 'proc', 'while', 'true', 'false', 'return',
     '#pre', '#post', '#invariant', '#variant'
 }
 kw = {k: pp.Keyword(k) for k in keywords}
@@ -49,7 +49,7 @@ identifier.add_condition(lambda s: s[0] not in keywords)
 identifier.set_parse_action(lambda s, loc, toks: Identifier(s, loc, toks[0]))
 int_lit = pp.pyparsing_common.integer.copy()
 int_lit.set_parse_action(lambda s, loc, toks: IntLiteral(s, loc, int(toks[0])))
-bool_lit = kw['true'] | kw['false']
+bool_lit: pp.ParserElement = kw['true'] | kw['false']
 bool_lit.set_parse_action(lambda s, loc, toks: BoolLiteral(s, loc, toks[0] == 'true'))
 
 assign = pp.Suppress(':=')
@@ -91,7 +91,9 @@ ifelse <<= sup_kw['if'] - expr - block - sup_kw['else'] - (ifelse | block)
 ifelse.set_parse_action(lambda s, loc, tokens: IfElse(s, loc, *tokens))
 while_ = pp.Opt(invariant, None) + pp.Opt(variant, None) + sup_kw['while'] - expr - block
 while_.set_parse_action(lambda s, loc, tokens: While(s, loc, *tokens))
-statement <<= ifelse | while_ | assignment
+assert_ = sup_kw['assert'] - expr - semi
+assert_.set_parse_action(lambda s, loc, tokens: Assert(s, loc, *tokens))
+statement <<= ifelse | while_ | assert_ | assignment
 
 params = left_paren - pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) - right_paren
 

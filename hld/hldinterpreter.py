@@ -23,6 +23,7 @@ class Opcode(IntEnum):
     JMP = auto()        # goto arg
     JMP_IF = auto()     # if stack[-1] != 0 goto y
     JMP_UNLESS = auto() # if stack[-1] == 0 goto y
+    ASSERT = auto()     # if stack[-1] == 0 die
 
 Inst = NamedTuple('Inst', op=Opcode, arg=int)
 
@@ -87,6 +88,11 @@ class Vm:
             nonlocal ip
             if stack.pop() == 0:
                 ip = inst.arg - 1
+        def assert_():
+            nonlocal ip
+            if stack.pop() == 0:
+                print('assertion failed: [SHOULD ADD A MORE HELPFUL MESSAGE]')
+                ip = length
         code: list = [None] * len(Opcode)
         code[Opcode.NOP] = nop
         code[Opcode.NEG] = neg
@@ -106,6 +112,7 @@ class Vm:
         code[Opcode.JMP] = jmp
         code[Opcode.JMP_IF] = jmp_if
         code[Opcode.JMP_UNLESS] = jmp_unless
+        code[Opcode.ASSERT] = assert_
         while ip < length:
             inst = prog[ip]
             code[inst.op]()

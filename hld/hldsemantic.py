@@ -102,6 +102,11 @@ class __Context:
         for statement in block.statements:
             self.check_statement(statement)
 
+    @check_statement.register
+    def _(self, assert_: Assert):
+        if self.typeof(assert_.expr) != ValueType.Bool:
+            raise RuntimeError(assert_.error('Type error'))
+
     @singledispatchmethod
     def check_declaration(self, _: Declaration):
         raise NotImplementedError

@@ -102,6 +102,10 @@ class While(Statement):
     body: Block
 
 @dataclass(frozen=True, repr=False)
+class Assert(Statement):
+    expr: Expr
+
+@dataclass(frozen=True, repr=False)
 class Proc(Declaration):
     pre: Expr | None
     post: Expr | None

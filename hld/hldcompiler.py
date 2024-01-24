@@ -133,6 +133,11 @@ class __Context:
             self.compile(statement)
 
     @compile.register
+    def _(self, assert_: Assert):
+        self.compile(assert_.expr)
+        self.emit(Opcode.ASSERT)
+
+    @compile.register
     def _(self, proc: Proc):
         for param in proc.params:
             self.allocate_variable(param.value)

@@ -126,6 +126,15 @@ class __Context:
             assert self.correctness == Correctness.TOTAL
             return self._total_while(while_, post)
 
+    @propagate.register
+    def _(self, assert_: Assert, post: z3.BoolRef) -> z3.BoolRef:
+        s = z3.Solver()
+        assertion = expr_to_z3(assert_.expr)
+        s.add(z3.And(post, z3.Not(assertion)))
+        if s.check() != z3.unsat:
+            raise RuntimeError('Assertion failed')
+        return post
+
     def _partial_while(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
         invariant = expr_to_z3(while_.invariant)
         assert isinstance(invariant, z3.BoolRef)
