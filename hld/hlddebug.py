@@ -54,7 +54,10 @@ def _(expr: InfixArithmeticExpr) -> z3.ArithRef:
     assert isinstance(res, z3.ArithRef)
     return res
 
-_infix_logical_ops = { '&&': z3.And, '||': z3.Or }
+_infix_logical_ops = {
+    '&&': lambda x, y: z3.If(x, y, z3.BoolVal(False)),
+    '||': lambda x, y: z3.If(z3.Not(x), y, z3.BoolVal(True)),
+ }
 
 @expr_to_z3.register
 def _(expr: InfixLogicalExpr) -> z3.BoolRef:
