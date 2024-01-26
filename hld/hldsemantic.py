@@ -2,11 +2,11 @@
 
 from hldast import *
 from functools import cache, singledispatchmethod
-from enum import IntEnum, auto
+from enum import Enum
 
-class ValueType(IntEnum):
-    Int = auto()
-    Bool = auto()
+class ValueType(Enum):
+    Int = 'int'
+    Bool = 'bool'
 
 def check_declaration(declaration: Declaration):
     ctx = __Context()
@@ -15,6 +15,11 @@ def check_declaration(declaration: Declaration):
 class __Context:
     def __init__(self):
         self.variables: dict[str, ValueType] = {}
+
+    def typecheck(self, expr: Expr, expected: ValueType):
+        actual = self.typeof(expr)
+        if actual != expected:
+            expr.error(f'expected {expected.value}, got {actual.value}')
 
     @singledispatchmethod
     @cache
@@ -31,39 +36,37 @@ class __Context:
 
     @typeof.register
     def _(self, expr: Identifier) -> ValueType:
-        return self.variables[expr.value]
+        try:
+            return self.variables[expr.value]
+        except:
+            expr.error(f'Variable `{expr.value}` not defined')
 
     @typeof.register
     def _(self, pref: PrefixArithmeticExpr) -> ValueType:
-        if self.typeof(pref.expr) != ValueType.Int:
-            raise RuntimeError(pref.error('Type error'))
+        self.typecheck(pref.expr, ValueType.Int)
         return ValueType.Int
 
     @typeof.register
     def _(self, pref: PrefixLogicalExpr) -> ValueType:
-        if self.typeof(pref.expr) != ValueType.Bool:
-            raise RuntimeError(pref.error('Type error'))
+        self.typecheck(pref.expr, ValueType.Bool)
         return ValueType.Bool
 
     @typeof.register
     def _(self, expr: InfixArithmeticExpr) -> ValueType:
-        if self.typeof(expr.left) != ValueType.Int \
-            or self.typeof(expr.right) != ValueType.Int:
-            raise RuntimeError(expr.error('Type error'))
+        self.typecheck(expr.left, ValueType.Int)
+        self.typecheck(expr.right, ValueType.Int)
         return ValueType.Int
 
     @typeof.register
     def _(self, expr: InfixRelationalExpr) -> ValueType:
-        if self.typeof(expr.left) != ValueType.Int \
-            or self.typeof(expr.right) != ValueType.Int:
-            raise RuntimeError(expr.error('Type error'))
+        self.typecheck(expr.left, ValueType.Int)
+        self.typecheck(expr.right, ValueType.Int)
         return ValueType.Bool
 
     @typeof.register
     def _(self, expr: InfixLogicalExpr) -> ValueType:
-        if self.typeof(expr.left) != ValueType.Bool \
-            or self.typeof(expr.right) != ValueType.Bool:
-            raise RuntimeError(expr.error('Type error'))
+        self.typecheck(expr.left, ValueType.Bool)
+        self.typecheck(expr.right, ValueType.Bool)
         return ValueType.Bool
 
     @singledispatchmethod
@@ -78,23 +81,21 @@ class __Context:
         if old == None:
             self.variables[dest] = etype
         elif old != etype:
-            raise RuntimeError(assignment.error('Type error'))
+            assignment.error(f'expected {old}, got {etype}')
 
     @check_statement.register
     def _(self, ifelse: IfElse):
-        if self.typeof(ifelse.cond) != ValueType.Bool:
-            raise RuntimeError(ifelse.error('Type error'))
+        self.typecheck(ifelse.cond, ValueType.Bool)
         self.check_statement(ifelse.then_block)
         self.check_statement(ifelse.else_block)
 
     @check_statement.register
     def _(self, while_: While):
-        if while_.invariant != None and self.typeof(while_.invariant) != ValueType.Bool:
-            raise RuntimeError(while_.error('Type error'))
-        if while_.variant != None and self.typeof(while_.variant) != ValueType.Int:
-            raise RuntimeError(while_.error('Type error'))
-        if self.typeof(while_.cond) != ValueType.Bool:
-            raise RuntimeError(while_.error('Type error'))
+        if while_.invariant != None:
+            self.typecheck(while_.invariant, ValueType.Bool)
+        if while_.variant != None:
+            self.typecheck(while_.variant, ValueType.Int)
+        self.typecheck(while_.cond, ValueType.Bool)
         self.check_statement(while_.body)
 
     @check_statement.register
@@ -104,8 +105,7 @@ class __Context:
 
     @check_statement.register
     def _(self, assert_: Assert):
-        if self.typeof(assert_.expr) != ValueType.Bool:
-            raise RuntimeError(assert_.error('Type error'))
+        self.typecheck(assert_.expr, ValueType.Bool)
 
     @singledispatchmethod
     def check_declaration(self, _: Declaration):
@@ -116,10 +116,10 @@ class __Context:
         for param in proc.params:
             value = param.value
             if value in self.variables:
-                raise RuntimeError(param.error('Duplicate parameter variable'))
+                param.error(f'Duplicate parameter variable `{value}`')
             self.variables[value] = ValueType.Int
-        if proc.pre != None and self.typeof(proc.pre) != ValueType.Bool:
-            raise RuntimeError(proc.pre.error('Type error'))
+        if proc.pre != None:
+            self.typecheck(proc.pre, ValueType.Bool)
         self.check_statement(proc.body)
-        if proc.post != None and self.typeof(proc.post) != ValueType.Bool:
-            raise RuntimeError(proc.post.error('Type error'))
+        if proc.post != None:
+            self.typecheck(proc.post, ValueType.Bool)

@@ -44,8 +44,8 @@ keywords = {
 kw = {k: pp.Keyword(k) for k in keywords}
 sup_kw = {k: pp.Suppress(v) for k, v in kw.items()}
 
-identifier = pp.Regex('\\$?[a-zA-z_][a-zA-z0-9_]*')
-identifier.add_condition(lambda s: s[0] not in keywords)
+not_kw = ~pp.MatchFirst(kw.values())
+identifier = not_kw + pp.Regex('\\$?[a-zA-z_][a-zA-z0-9_]*')
 identifier.set_parse_action(lambda s, loc, toks: Identifier(s, loc, toks[0]))
 int_lit = pp.pyparsing_common.integer.copy()
 int_lit.set_parse_action(lambda s, loc, toks: IntLiteral(s, loc, int(toks[0])))
@@ -75,6 +75,7 @@ assoc_table = [
     (or_op, 2, pp.OpAssoc.LEFT, infix_ctor),
 ]
 expr = pp.infix_notation(int_lit | bool_lit | identifier, assoc_table)
+expr.set_name('expression')
 
 precondition = sup_kw['#pre'] - expr
 postcondition = sup_kw['#post'] - expr

@@ -6,20 +6,19 @@ import pyparsing
 from abc import ABC
 from dataclasses import dataclass
 from operator import attrgetter
+from typing import NoReturn
 
 @dataclass(frozen=True, repr=False)
 class ASTNode(ABC):
     src: str
     loc: int
 
-    def message(self, type: str, msg: str) -> str:
+    def error(self, msg: str) -> NoReturn:
         lineno = pyparsing.lineno(self.loc, self.src)
         col = pyparsing.col(self.loc, self.src)
         line = pyparsing.line(self.loc, self.src)
-        return f'{lineno}:{col}: {type}: {msg}\n{line}'
-
-    def error(self, msg: str) -> str:
-        return self.message('error', msg)
+        ptr = f'{" " * col}^'
+        raise HLDError(f'{lineno}:{col}: error: {msg}.\n{line}\n{ptr}')
 
     def __repr__(self) -> str:
         pairs = (((f.name, attrgetter(f.name)(self))
@@ -112,3 +111,6 @@ class Proc(Declaration):
     name: Identifier
     params: list[Identifier]
     body: Block
+
+class HLDError(RuntimeError):
+    pass

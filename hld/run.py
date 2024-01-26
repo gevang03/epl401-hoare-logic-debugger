@@ -8,6 +8,7 @@ import hldparser
 import hldsemantic
 
 import optparse
+import pyparsing
 import sys
 
 def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
@@ -40,11 +41,7 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
 def run(filename: str) -> None | int:
     proc, = hldparser.parser.parse_file(filename, parse_all=True)
     assert type(proc) == hldast.Proc
-    try:
-        hldsemantic.check_declaration(proc)
-    except RuntimeError as e:
-        print(f'{filename}: {e.args[0]}')
-        return 1
+    hldsemantic.check_declaration(proc)
     vars, prog = hldcompiler.compile_proc(proc)
     vm = hldinterpreter.Vm(prog)
     result = vm.run(vars)
@@ -53,11 +50,7 @@ def run(filename: str) -> None | int:
 def dis(filename: str) -> None | int:
     proc, = hldparser.parser.parse_file(filename, parse_all=True)
     assert type(proc) == hldast.Proc
-    try:
-        hldsemantic.check_declaration(proc)
-    except RuntimeError as e:
-        print(f'{filename}: {e.args[0]}')
-        return 1
+    hldsemantic.check_declaration(proc)
     _, prog = hldcompiler.compile_proc(proc)
     for i, (opcode, arg) in enumerate(prog):
         print(f'{i:04x} {opcode.name} {arg:04x}')
@@ -65,30 +58,26 @@ def dis(filename: str) -> None | int:
 def debug(filename: str, correctness: hlddebug.Correctness):
     proc, = hldparser.parser.parse_file(filename, parse_all=True)
     assert type(proc) == hldast.Proc
-    try:
-        hldsemantic.check_declaration(proc)
-    except RuntimeError as e:
-        print(f'{filename}: {e.args[0]}')
-        return 1
+    hldsemantic.check_declaration(proc)
     pre = hlddebug.get_pre(proc, correctness)
     print(f'#pre {pre}')
 
 def main(argv: list[str]) -> None | int:
     options, args = parse_args(argv)
-    proc, = hldparser.parser.parse_file(args[1], parse_all=True)
-    assert type(proc) == hldast.Proc
+    filename = args[1]
     try:
-        hldsemantic.check_declaration(proc)
-    except RuntimeError as e:
-        print(f'{args[1]}: {e.args[0]}')
+        if options.run:
+            return run(filename)
+        elif options.dis:
+            return dis(filename)
+        else:
+            correctness = hlddebug.Correctness(options.correctness)
+            return debug(filename, correctness)
+    except pyparsing.exceptions.ParseBaseException as pe:
+        print(pe.explain(depth=0), file=sys.stderr)
+    except hldast.HLDError as pe:
+        print(f'{args[1]}:{pe.args[0]}', file=sys.stderr)
         return 1
-    if options.run:
-        return run(args[1])
-    elif options.dis:
-        return dis(args[1])
-    else:
-        correctness = hlddebug.Correctness(options.correctness)
-        return debug(args[1], correctness)
 
 if __name__ == '__main__':
     status = main(sys.argv)
