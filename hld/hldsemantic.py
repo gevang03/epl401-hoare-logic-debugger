@@ -39,7 +39,7 @@ class __Context:
         try:
             return self.variables[expr.value]
         except:
-            expr.error(f'Variable `{expr.value}` not defined')
+            expr.error(f'variable `{expr.value}` not defined')
 
     @typeof.register
     def _(self, pref: PrefixArithmeticExpr) -> ValueType:
@@ -116,7 +116,7 @@ class __Context:
         for param in proc.params:
             value = param.value
             if value in self.variables:
-                param.error(f'Duplicate parameter variable `{value}`')
+                param.error(f'duplicate parameter `{value}`')
             self.variables[value] = ValueType.Int
         if proc.pre != None:
             self.typecheck(proc.pre, ValueType.Bool)

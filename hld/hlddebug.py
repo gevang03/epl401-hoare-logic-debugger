@@ -54,10 +54,7 @@ def _(expr: InfixArithmeticExpr) -> z3.ArithRef:
     assert isinstance(res, z3.ArithRef)
     return res
 
-_infix_logical_ops = {
-    '&&': lambda x, y: z3.If(x, y, z3.BoolVal(False)),
-    '||': lambda x, y: z3.If(z3.Not(x), y, z3.BoolVal(True)),
- }
+_infix_logical_ops = { '&&': z3.And,'||': z3.Or }
 
 @expr_to_z3.register
 def _(expr: InfixLogicalExpr) -> z3.BoolRef:
@@ -84,6 +81,11 @@ def _(expr: InfixRelationalExpr) -> z3.BoolRef:
     res = _infix_rel_ops[expr.op](left, right)
     assert isinstance(res, z3.BoolRef)
     return res
+
+def simplify(expr: z3.BoolRef | z3.ArithRef) -> z3.BoolRef | z3.ArithRef:
+    ret = z3.simplify(expr, arith_lhs=True)
+    assert isinstance(ret, (z3.BoolRef, z3.ArithRef))
+    return ret
 
 class Correctness(Enum):
     PARTIAL = 'partial'
@@ -119,6 +121,10 @@ class __Context:
         assertion = post
         for statement in reversed(block.statements):
             assertion = self.propagate(statement, assertion)
+            s = z3.Solver()
+            s.add(assertion)
+            if s.check() == z3.unsat:
+                statement.error(f'precondition {assertion} found at statement is unsatisfiable')
         return assertion
 
     @propagate.register
@@ -135,7 +141,7 @@ class __Context:
         assertion = expr_to_z3(assert_.expr)
         s.add(z3.And(post, z3.Not(assertion)))
         if s.check() != z3.unsat:
-            raise RuntimeError('Assertion failed')
+            assert_.error(f'assertion does not hold, condition found at assertion: {simplify(post)}\ncounter-example: {s.model()}')
         return post
 
     def _partial_while(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
@@ -146,13 +152,15 @@ class __Context:
         # (invariant && !cond) -> post
         s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
         if s.check() != z3.unsat:
-            raise RuntimeError(f'invariant and guard negation, does not imply postcondition')
+            supplementary = f'\tpost: {simplify(post)}'
+            while_.body.error(f'invariant and guard negation do not imply post condition.\n{supplementary}\ncounter-example: {s.model()}')
         body_pre = self.propagate(while_.body, invariant)
         s.reset()
         # (invariant && cond) -> body_pre
         s.add(z3.And(invariant, cond, z3.Not(body_pre)))
         if s.check() != z3.unsat:
-            raise RuntimeError('invariant and guard does not imply precondition')
+            supplementary = f'\tbody pre: {simplify(body_pre)}'
+            while_.body.error(f'invariant and guard do not imply while loop body precondition.\n{supplementary}\ncounter-example: {s.model()}')
         return invariant
 
     def _total_while(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
@@ -167,7 +175,8 @@ class __Context:
         # (invariant && !cond) -> post
         s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
         if s.check() != z3.unsat:
-            raise RuntimeError(f'invariant and guard negation, does not imply postcondition')
+            supplementary = f'\tpost: {simplify(post)}'
+            while_.body.error(f'invariant and guard negation do not imply postcondition.\n{supplementary}')
         upper = z3.FreshInt('e')
         body_post = z3.And(pre, variant < upper)
         body_pre = self.propagate(while_.body, body_post)
@@ -175,7 +184,8 @@ class __Context:
         # (invariant && cond && 0 <= variant = upper) -> body_pre
         s.add(z3.And(pre, cond, variant == upper, z3.Not(body_pre)))
         if s.check() != z3.unsat:
-            raise RuntimeError('invariant and guard and variant does not imply precondition')
+            supplementary = f'\tbody pre: {simplify(body_pre)}'
+            while_.body.error(f'invariant and guard and variant do not imply while body precondition.\n{supplementary}')
         return pre
 
 def get_pre(proc: Proc, correctness: Correctness):
@@ -187,11 +197,11 @@ def get_pre(proc: Proc, correctness: Correctness):
         pre = expr_to_z3(proc.pre)
         s.add(z3.Not(z3.Implies(pre, assertion)))
         if s.check() != z3.unsat:
-            print('precondition cannot hold')
+            proc.pre.error(f'precondition {pre} does not imply assertion found {simplify(assertion)}')
     s = z3.Solver()
     s.add(assertion)
     if s.check() == z3.unsat:
-        print('precondition found cannot hold')
+        proc.error(f'precondition {simplify(assertion)} found is unsatisfiable')
     return z3.simplify(assertion, arith_lhs=True)
 
 def _prove(p: z3.BoolRef) -> bool:

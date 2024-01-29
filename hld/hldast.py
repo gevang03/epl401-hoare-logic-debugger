@@ -17,8 +17,8 @@ class ASTNode(ABC):
         lineno = pyparsing.lineno(self.loc, self.src)
         col = pyparsing.col(self.loc, self.src)
         line = pyparsing.line(self.loc, self.src)
-        ptr = f'{" " * col}^'
-        raise HLDError(f'{lineno}:{col}: error: {msg}.\n{line}\n{ptr}')
+        ptr = f'{" " * (col-1)}^'
+        raise HLDError(f'{lineno}:{col}: error: {msg}\n{line}\n{ptr}')
 
     def __repr__(self) -> str:
         pairs = (((f.name, attrgetter(f.name)(self))
