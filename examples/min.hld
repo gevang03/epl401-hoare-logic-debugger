@@ -1,0 +1,9 @@
+#pre true
+#post (y >= x || z == y) && (x > y || z == x)
+proc min(x, y) {
+  if x <= y {
+    z := x;
+  } else {
+    z := y;
+  }
+}

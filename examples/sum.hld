@@ -1,0 +1,11 @@
+#post total == n * (n - 1)
+proc sum(n) {
+  i := 0;
+  total := 0;
+  #invariant total == i * (i - 1)
+  #variant n - i
+  while i != n {
+    total := total + 2 * i;
+    i := i + 1;
+  }
+}
