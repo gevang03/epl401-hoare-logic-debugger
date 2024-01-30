@@ -68,6 +68,10 @@ un_op = '+' | '-' | '!';
 ```
 
 ## Language Semantics
+The language semantics are based on a simply typed variant of the WHILE language.
+
+Identifiers prefixed with dollar ($) are symbolic and may appear in precondition, postcondition, variants and invariants.
+Symbolic variables and procedure parameters are always assume to be integer typed.
 
 ## Hoare Logic Semantics
 

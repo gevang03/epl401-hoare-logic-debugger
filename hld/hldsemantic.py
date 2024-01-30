@@ -15,6 +15,13 @@ def check_declaration(declaration: Declaration):
 class __Context:
     def __init__(self):
         self.variables: dict[str, ValueType] = {}
+        self.in_metacond = False
+
+    def typecheck_meta(self, expr: Expr, expected: ValueType):
+        prev = self.in_metacond
+        self.in_metacond = True
+        self.typecheck(expr, expected)
+        self.in_metacond = prev
 
     def typecheck(self, expr: Expr, expected: ValueType):
         actual = self.typeof(expr)
@@ -27,7 +34,7 @@ class __Context:
         raise NotImplementedError
 
     @typeof.register
-    def _(self, _: BoolLiteral) -> ValueType: 
+    def _(self, _: BoolLiteral) -> ValueType:
         return ValueType.Bool
 
     @typeof.register
@@ -36,6 +43,10 @@ class __Context:
 
     @typeof.register
     def _(self, expr: Identifier) -> ValueType:
+        if expr.value[0] == '$':
+            if not self.in_metacond:
+                expr.error(f'symbolic variable `{expr.value}` is not allowed outside of meta conditions')
+            return ValueType.Int
         try:
             return self.variables[expr.value]
         except:
@@ -77,11 +88,14 @@ class __Context:
     def _(self, assignment: Assignment):
         etype = self.typeof(assignment.value)
         dest = assignment.dest.value
-        old = self.variables.get(dest)
-        if old == None:
+        if dest[0] == '$':
+            assignment.error(f'cannot assign to symbolic variable `{dest}`')
+        try:
+            old = self.variables[dest]
+            if old != etype:
+                assignment.error(f'expected {old}, got {etype}')
+        except KeyError:
             self.variables[dest] = etype
-        elif old != etype:
-            assignment.error(f'expected {old}, got {etype}')
 
     @check_statement.register
     def _(self, ifelse: IfElse):
@@ -92,9 +106,9 @@ class __Context:
     @check_statement.register
     def _(self, while_: While):
         if while_.invariant != None:
-            self.typecheck(while_.invariant, ValueType.Bool)
+            self.typecheck_meta(while_.invariant, ValueType.Bool)
         if while_.variant != None:
-            self.typecheck(while_.variant, ValueType.Int)
+            self.typecheck_meta(while_.variant, ValueType.Int)
         self.typecheck(while_.cond, ValueType.Bool)
         self.check_statement(while_.body)
 
@@ -119,7 +133,7 @@ class __Context:
                 param.error(f'duplicate parameter `{value}`')
             self.variables[value] = ValueType.Int
         if proc.pre != None:
-            self.typecheck(proc.pre, ValueType.Bool)
+            self.typecheck_meta(proc.pre, ValueType.Bool)
         self.check_statement(proc.body)
         if proc.post != None:
-            self.typecheck(proc.post, ValueType.Bool)
+            self.typecheck_meta(proc.post, ValueType.Bool)
