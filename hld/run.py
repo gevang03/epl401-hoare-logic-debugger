@@ -73,8 +73,12 @@ def main(argv: list[str]) -> None | int:
         else:
             correctness = hlddebug.Correctness(options.correctness)
             return debug(filename, correctness)
+    except OSError as os_err:
+        print(f'error: {os_err.filename}: {os_err.strerror}', file=sys.stderr)
+        return 1
     except pyparsing.exceptions.ParseBaseException as pe:
         print(pe.explain(depth=0), file=sys.stderr)
+        return 1
     except hldast.HLDError as pe:
         print(f'{args[1]}:{pe.args[0]}', file=sys.stderr)
         return 1
