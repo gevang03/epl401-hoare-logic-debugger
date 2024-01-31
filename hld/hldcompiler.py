@@ -100,6 +100,18 @@ class __Context:
             self.backpatch(l)
 
     @compile.register
+    def _(self, ternary: TernaryExpr):
+        self.compile(ternary.cond)
+        l0 = len(self.prog)
+        self.emit(Opcode.JMP_UNLESS)
+        self.compile(ternary.then_expr)
+        l1 = len(self.prog)
+        self.emit(Opcode.JMP)
+        self.backpatch(l0)
+        self.compile(ternary.else_expr)
+        self.backpatch(l1)
+
+    @compile.register
     def _(self, assignment: Assignment):
         self.compile(assignment.value)
         dest = self.get_variable(assignment.dest.value)

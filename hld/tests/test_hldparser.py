@@ -59,6 +59,10 @@ class TestHldParser(unittest.TestCase):
         self._test(hldparser.expr, 'p1 && p2', hldast.InfixLogicalExpr, {'op': '&&'})
         self._test(hldparser.expr, 'p && q || r', hldast.InfixLogicalExpr, {'op': '||'})
 
+    def test_ternary(self):
+        values = {'cond.value': False, 'then_expr.value': 1, 'else_expr.value': 2}
+        self._test(hldparser.expr, 'false ? 1 : 2', hldast.TernaryExpr, values)
+
     def test_assignment(self):
         self._test(hldparser.assignment, 'foo := 1 + 7;', hldast.Assignment, {'dest.value' : 'foo', 'value.op': '+'})
 

@@ -81,6 +81,13 @@ class __Context:
         self.typecheck(expr.right, ValueType.Bool)
         return ValueType.Bool
 
+    @typeof.register
+    def _(self, expr: TernaryExpr) -> ValueType:
+        self.typecheck(expr.cond, ValueType.Bool)
+        then_type = self.typeof(expr.then_expr)
+        self.typecheck(expr.else_expr, then_type)
+        return then_type
+
     @singledispatchmethod
     def check_statement(self, _: Statement):
         raise NotImplementedError

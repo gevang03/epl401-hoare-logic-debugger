@@ -45,10 +45,13 @@ class __Context:
 
     @expr_to_z3.register
     def _(self, expr: Identifier) -> z3.BoolRef | z3.ArithRef:
-        if self.variables[expr.value] == ValueType.Int:
-            return z3.Int(expr.value)
+        value = expr.value
+        type = self.variables[value]
+        if type == ValueType.Int:
+            return z3.Int(value)
         else:
-            return z3.Bool(expr.value)
+            assert type == ValueType.Bool
+            return z3.Bool(value)
 
     @expr_to_z3.register
     def _(self, pref: PrefixArithmeticExpr) -> z3.ArithRef:
@@ -99,6 +102,15 @@ class __Context:
         assert isinstance(res, z3.BoolRef)
         return res
 
+    @expr_to_z3.register
+    def _(self, expr: TernaryExpr) -> z3.BoolRef | z3.ArithRef:
+        cond = self.expr_to_z3(expr.cond)
+        then_expr = self.expr_to_z3(expr.then_expr)
+        else_expr = self.expr_to_z3(expr.else_expr)
+        res = z3.If(cond, then_expr, else_expr)
+        assert isinstance(res, (z3.BoolRef, z3.ArithRef))
+        return res
+
     @singledispatchmethod
     def propagate(self, _: Statement, _post: z3.BoolRef) -> z3.BoolRef:
         raise NotImplementedError
@@ -116,7 +128,8 @@ class __Context:
         then_block = self.propagate(ifelse.then_block, post)
         else_block = self.propagate(ifelse.else_block, post)
         cond = self.expr_to_z3(ifelse.cond)
-        res = z3.And(z3.Implies(cond, then_block), z3.Implies(z3.Not(cond), else_block))
+        res = z3.If(cond, then_block, else_block)
+        # res = z3.And(z3.Implies(cond, then_block), z3.Implies(z3.Not(cond), else_block))
         assert isinstance(res, z3.BoolRef)
         return res
 

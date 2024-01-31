@@ -30,7 +30,7 @@ while = [invariant], [variant], 'while', expression, block;
 block = '{', {statement}, '}';
 
 (* EXPRESSIONS *)
-expression = identifier | or_expr;
+expression = primary | ternary_expr;
 
 (* Using regex: /\$?[a-zA-Z_][a-zA-Z0-9_]*/ *)
 identifier = ['$'], (alpha | '_'), {alphanum | '_'};
@@ -53,11 +53,12 @@ lower = ? letters a to z ?;
 upper = ? letters A to Z ?;
 digits = ? digits 0 to 9 ?;
 
-or_expr = and_expr, '||', or_expr;
-and_expr = rel_expr, '&&', and_expr;
-rel_expr = add_expr, rel_op, rel_expr;
-add_expr = mul_expr, add_op, add_expr;
-mul_expr = unary_expr, mul_op, mul_expr;
+ternary_expr = or_expr, '?', ternary_expr, ':', ternary_expr;
+or_expr = and_expr, '||', and_expr;
+and_expr = rel_expr, '&&', rel_expr;
+rel_expr = add_expr, rel_op, add_expr;
+add_expr = mul_expr, add_op, mul_expr;
+mul_expr = unary_expr, mul_op, unary_expr;
 unary_expr = un_op, primary;
 primary = '(' expression ')' | literal | identifier;
 

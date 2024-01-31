@@ -1,5 +1,5 @@
 #pre true
-#post (y >= x || z == y) && (x > y || z == x)
+#post z == (x < y ? x : y)
 proc min(x, y) {
   if x <= y {
     z := x;

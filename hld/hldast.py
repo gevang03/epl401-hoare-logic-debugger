@@ -79,6 +79,12 @@ class InfixRelationalExpr(InfixExpr):
     pass
 
 @dataclass(frozen=True, repr=False)
+class TernaryExpr(Expr):
+    cond: Expr
+    then_expr: Expr
+    else_expr: Expr
+
+@dataclass(frozen=True, repr=False)
 class Assignment(Statement):
     dest: Identifier
     value: Expr
