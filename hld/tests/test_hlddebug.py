@@ -6,6 +6,7 @@ import z3
 import hldast
 import hlddebug
 import hldparser
+import hldsemantic
 
 class TestHldDebug(unittest.TestCase):
     def test_assignments(self):
@@ -21,7 +22,8 @@ proc linear(x, y) {
 '''
         ast, = hldparser.parser.parse_string(program, parse_all=True)
         assert isinstance(ast, hldast.Proc)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL)
+        variables = hldsemantic.check_declaration(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, variables)
         self.assertEqual(pre, True)
 
     def test_ifelse(self):
@@ -37,7 +39,8 @@ proc min(x, y) {
 '''
         ast, = hldparser.parser.parse_string(program, parse_all=True)
         assert isinstance(ast, hldast.Proc)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL)
+        variables = hldsemantic.check_declaration(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, variables)
         self.assertEqual(pre, True)
 
     def test_while_partial(self):
@@ -55,7 +58,8 @@ proc sum(n) {
 '''
         ast, = hldparser.parser.parse_string(program, parse_all=True)
         assert isinstance(ast, hldast.Proc)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL)
+        variables = hldsemantic.check_declaration(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, variables)
         self.assertEqual(pre, True)
 
     def test_while_total(self):
@@ -74,7 +78,8 @@ proc sum(n) {
 '''
         ast, = hldparser.parser.parse_string(program, parse_all=True)
         assert isinstance(ast, hldast.Proc)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.TOTAL)
+        variables = hldsemantic.check_declaration(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.TOTAL, variables)
         expected = z3.Int('n') >= 0
         s = z3.Solver()
         s.add(expected != pre)
