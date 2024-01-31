@@ -8,9 +8,10 @@ class ValueType(Enum):
     Int = 'int'
     Bool = 'bool'
 
-def check_declaration(declaration: Declaration):
+def check_declaration(declaration: Declaration) -> dict[str, ValueType]:
     ctx = __Context()
-    return ctx.check_declaration(declaration)
+    ctx.check_declaration(declaration)
+    return ctx.variables
 
 class __Context:
     def __init__(self):

@@ -58,8 +58,8 @@ def dis(filename: str) -> None | int:
 def debug(filename: str, correctness: hlddebug.Correctness):
     proc, = hldparser.parser.parse_file(filename, parse_all=True)
     assert type(proc) == hldast.Proc
-    hldsemantic.check_declaration(proc)
-    pre = hlddebug.get_pre(proc, correctness)
+    variables = hldsemantic.check_declaration(proc)
+    pre = hlddebug.get_pre(proc, correctness, variables)
     print(f'#pre {pre}')
 
 def main(argv: list[str]) -> None | int:
