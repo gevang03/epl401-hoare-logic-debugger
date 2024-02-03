@@ -20,27 +20,28 @@ proc linear(x, y) {
   z := z + a;
 }
 '''
-        ast, = hldparser.parser.parse_string(program, parse_all=True)
-        assert isinstance(ast, hldast.Proc)
-        variables = hldsemantic.check_declaration(ast)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, variables)
+        ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
+        self.assertIsInstance(ast, list)
+        decls = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls)['linear']
         self.assertEqual(pre, True)
 
     def test_ifelse(self):
         program = '''
-#post (y >= x || z == y) && (x > y || z == x)
+#pre true
+#post z == (x < y ? x : y)
 proc min(x, y) {
-  if x <= y {
+  if x < y {
     z := x;
   } else {
     z := y;
   }
 }
 '''
-        ast, = hldparser.parser.parse_string(program, parse_all=True)
-        assert isinstance(ast, hldast.Proc)
-        variables = hldsemantic.check_declaration(ast)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, variables)
+        ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
+        self.assertIsInstance(ast, list)
+        decls = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls)['min']
         self.assertEqual(pre, True)
 
     def test_while_partial(self):
@@ -56,10 +57,10 @@ proc sum(n) {
   }
 }
 '''
-        ast, = hldparser.parser.parse_string(program, parse_all=True)
-        assert isinstance(ast, hldast.Proc)
-        variables = hldsemantic.check_declaration(ast)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, variables)
+        ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
+        self.assertIsInstance(ast, list)
+        decls = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls)['sum']
         self.assertEqual(pre, True)
 
     def test_while_total(self):
@@ -76,10 +77,10 @@ proc sum(n) {
   }
 }
 '''
-        ast, = hldparser.parser.parse_string(program, parse_all=True)
-        assert isinstance(ast, hldast.Proc)
-        variables = hldsemantic.check_declaration(ast)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.TOTAL, variables)
+        ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
+        self.assertIsInstance(ast, list)
+        decls = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.TOTAL, decls)['sum']
         expected = z3.Int('n') >= 0
         s = z3.Solver()
         s.add(expected != pre)

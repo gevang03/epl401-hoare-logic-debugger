@@ -156,12 +156,20 @@ class __Context:
         self.compile(proc.body)
         self.emit(Opcode.NOP)
 
+    def compile_program(self, decls: list[Declaration]) -> tuple[dict[str, dict[str, int]], list[Inst]]:
+        symtab = {}
+        for decl in decls:
+            if isinstance(decl, Proc):
+                self.compile(decl)
+                symtab[decl.name.value] = self.vars
+                self.vars = {}
+        return symtab, self.prog
+
     def backpatch(self, inst: int, to: int | None = None):
         if to == None:
             to = len(self.prog)
         self.prog[inst] = Inst(self.prog[inst].op, to)
 
-def compile_proc(proc: Proc) -> tuple[dict[str, int], list[Inst]]:
+def compile_program(decls: list[Declaration]) -> tuple[dict[str, dict[str, int]], list[Inst]]:
     ctx = __Context()
-    ctx.compile(proc)
-    return ctx.vars, ctx.prog
+    return ctx.compile_program(decls)

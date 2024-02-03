@@ -8,7 +8,7 @@ from hldast import *
 from hldsemantic import ValueType
 
 _infix_arith_ops = { '*': operator.mul, '+': operator.add, '-': operator.sub }
-_infix_logical_ops = { '&&': z3.And,'||': z3.Or }
+_infix_logical_ops = { '&&': z3.And, '||': z3.Or }
 _infix_rel_ops = {
     '<=': operator.le, '<': operator.lt,
     '>=': operator.ge, '>': operator.gt,
@@ -17,7 +17,7 @@ _infix_rel_ops = {
 
 def simplify(expr: z3.BoolRef | z3.ArithRef) -> z3.BoolRef | z3.ArithRef:
     ret = z3.Tactic('ctx-solver-simplify').apply(expr).as_expr()
-    # ret = z3.simplify(expr, arith_lhs=True)
+    ret = z3.simplify(ret, arith_lhs=True)
     assert isinstance(ret, (z3.BoolRef, z3.ArithRef))
     return ret
 
@@ -26,9 +26,19 @@ class Correctness(Enum):
     TOTAL = 'total'
 
 class __Context:
-    def __init__(self, correctness: Correctness, variables: dict[str, ValueType]):
+    def __init__(self, correctness: Correctness, symtab: dict[str, dict[str, ValueType]]):
         self.correctness = correctness
-        self.variables = variables
+        self.symtab = symtab
+        self.variables: dict[str, ValueType] = {}
+        self.fns: dict[str, z3.BoolRef]
+
+    # TODO: 
+    def add_fn(self, fn: Fn):
+        sig = [z3.IntSort()] * (len(fn.params) + 1)
+        f = z3.RecFunction(fn.name.value, *sig)
+        vars = [z3.Int(param.value) for param in fn.params]
+        expr = self.expr_to_z3(fn.expr)
+        self.fns[fn.name.value] = z3.ForAll(vars, f(*vars) == expr)
 
     @singledispatchmethod
     @cache
@@ -129,7 +139,6 @@ class __Context:
         else_block = self.propagate(ifelse.else_block, post)
         cond = self.expr_to_z3(ifelse.cond)
         res = z3.If(cond, then_block, else_block)
-        # res = z3.And(z3.Implies(cond, then_block), z3.Implies(z3.Not(cond), else_block))
         assert isinstance(res, z3.BoolRef)
         return res
 
@@ -205,21 +214,35 @@ class __Context:
             while_.body.error(f'invariant and guard and variant do not imply while body precondition.\n{supplementary}')
         return pre
 
-def get_pre(proc: Proc, correctness: Correctness, variables: dict[str, ValueType]):
-    ctx = __Context(correctness, variables)
-    post = ctx.expr_to_z3(proc.post)
-    assertion = ctx.propagate(proc.body, post)
-    s = z3.Solver()
-    s.add(assertion)
-    if s.check() == z3.unsat:
-        proc.error(f'precondition {simplify(assertion)} found is unsatisfiable')
-    if proc.pre != None:
+    @singledispatchmethod
+    def verify(self, proc: Proc) -> z3.BoolRef:
+        self.variables = self.symtab[proc.name.value]
+        post = self.expr_to_z3(proc.post)
+        assertion = self.propagate(proc.body, post)
         s = z3.Solver()
-        pre = ctx.expr_to_z3(proc.pre)
-        s.add(z3.Not(z3.Implies(pre, assertion)))
-        if s.check() != z3.unsat:
-            proc.pre.error(f'precondition {pre} does not imply assertion found {simplify(assertion)}')
-    return simplify(assertion)
+        s.add(assertion)
+        if s.check() == z3.unsat:
+            proc.error(f'precondition {simplify(assertion)} found is unsatisfiable')
+        if proc.pre != None:
+            s = z3.Solver()
+            pre = self.expr_to_z3(proc.pre)
+            s.add(z3.Not(z3.Implies(pre, assertion)))
+            if s.check() != z3.unsat:
+                proc.pre.error(f'precondition {pre} does not imply assertion found {simplify(assertion)}')
+        assertion = simplify(assertion)
+        assert isinstance(assertion, z3.BoolRef)
+        return assertion
+
+def get_pre(decls: list[Declaration], correctness: Correctness, symtab: dict[str, dict[str, ValueType]]) -> dict[str, z3.BoolRef]:
+    ctx = __Context(correctness, symtab)
+    pres = {}
+    for decl in decls:
+        if isinstance(decl, Proc):
+            pres[decl.name.value] = ctx.verify(decl)
+        else:
+            assert isinstance(decl, Fn)
+            raise NotImplementedError
+    return pres
 
 # NOTE: unused
 def _prove(p: z3.BoolRef) -> bool:

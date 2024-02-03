@@ -8,13 +8,13 @@ class ValueType(Enum):
     Int = 'int'
     Bool = 'bool'
 
-def check_declaration(declaration: Declaration) -> dict[str, ValueType]:
+def check_program(decls: list[Declaration]) -> dict[str, dict[str, ValueType]]:
     ctx = __Context()
-    ctx.check_declaration(declaration)
-    return ctx.variables
+    return ctx.check_program(decls)
 
 class __Context:
     def __init__(self):
+        self.decls: dict[str, Declaration] = {}
         self.variables: dict[str, ValueType] = {}
         self.in_metacond = False
 
@@ -47,6 +47,7 @@ class __Context:
         if expr.value[0] == '$':
             if not self.in_metacond:
                 expr.error(f'symbolic variable `{expr.value}` is not allowed outside of meta conditions')
+            self.variables[expr.value] = ValueType.Int
             return ValueType.Int
         try:
             return self.variables[expr.value]
@@ -135,13 +136,41 @@ class __Context:
 
     @check_declaration.register
     def _(self, proc: Proc):
-        for param in proc.params:
-            value = param.value
-            if value in self.variables:
-                param.error(f'duplicate parameter `{value}`')
-            self.variables[value] = ValueType.Int
+        self.check_params(proc)
         if proc.pre != None:
             self.typecheck_meta(proc.pre, ValueType.Bool)
         self.check_statement(proc.body)
         if proc.post != None:
             self.typecheck_meta(proc.post, ValueType.Bool)
+
+    @check_declaration.register
+    def _(self, fn: Fn):
+        self.check_params(fn)
+        if fn.pre != None:
+            self.typecheck_meta(fn.pre, ValueType.Bool)
+        self.typecheck(fn.expr, ValueType.Int)
+
+    def check_params(self, decl: Fn | Proc):
+        for param in decl.params:
+            value = param.value
+            if value in self.variables:
+                param.error(f'duplicate parameter `{value}`')
+            if value[0] == '$':
+                param.error(f'parameter `{value}` cannot be a symbolic value')
+            self.variables[value] = ValueType.Int
+
+    def check_program(self, decls: list[Declaration]) -> dict[str, dict[str, ValueType]]:
+        symtab: dict[str, dict[str, ValueType]] = {}
+        for decl in decls:
+            assert isinstance(decl, (Fn, Proc))
+            value = decl.name.value
+            if value in self.decls:
+                decl.error(f'duplicate declaration `{value}`')
+            self.decls[decl.name.value] = decl
+        for decl in decls:
+            assert isinstance(decl, (Fn, Proc))
+            value = decl.name.value
+            self.check_declaration(decl)
+            symtab[value] = self.variables
+            self.variables = {}
+        return symtab

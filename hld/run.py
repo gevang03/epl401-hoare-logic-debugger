@@ -39,28 +39,29 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
     return p.parse_args(argv)
 
 def run(filename: str) -> None | int:
-    proc, = hldparser.parser.parse_file(filename, parse_all=True)
-    assert type(proc) == hldast.Proc
-    hldsemantic.check_declaration(proc)
-    vars, prog = hldcompiler.compile_proc(proc)
+    decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
+    assert isinstance(decls, list)
+    hldsemantic.check_program(decls)
+    vars, prog = hldcompiler.compile_program(decls)
     vm = hldinterpreter.Vm(prog)
     result = vm.run(vars)
     print(result)
 
 def dis(filename: str) -> None | int:
-    proc, = hldparser.parser.parse_file(filename, parse_all=True)
-    assert type(proc) == hldast.Proc
-    hldsemantic.check_declaration(proc)
-    _, prog = hldcompiler.compile_proc(proc)
+    decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
+    assert isinstance(decls, list)
+    hldsemantic.check_program(decls)
+    _, prog = hldcompiler.compile_program(decls)
     for i, (opcode, arg) in enumerate(prog):
         print(f'{i:04x} {opcode.name} {arg:04x}')
 
 def debug(filename: str, correctness: hlddebug.Correctness):
-    proc, = hldparser.parser.parse_file(filename, parse_all=True)
-    assert type(proc) == hldast.Proc
-    variables = hldsemantic.check_declaration(proc)
-    pre = hlddebug.get_pre(proc, correctness, variables)
-    print(f'#pre {pre}')
+    decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
+    assert isinstance(decls, list)
+    symtab = hldsemantic.check_program(decls)
+    pres = hlddebug.get_pre(decls, correctness, symtab)
+    for sym, pre in pres.items():
+        print(f'proc {sym}(...) {{...}} requires `{pre}`')
 
 def main(argv: list[str]) -> None | int:
     options, args = parse_args(argv)

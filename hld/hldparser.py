@@ -47,7 +47,7 @@ def prefix_ctor(src: str, loc: int, tokens: pp.ParseResults) -> PrefixExpr:
         return PrefixLogicalExpr(src, loc, op, expr)
 
 keywords = {
-    'assert', 'if', 'else', 'proc', 'while', 'true', 'false', 'return',
+    'assert', 'if', 'else', 'proc', 'fn', 'while', 'true', 'false', 'return',
     '#pre', '#post', '#invariant', '#variant'
 }
 kw = {k: pp.Keyword(k) for k in keywords}
@@ -112,4 +112,10 @@ params = left_paren - pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) -
 proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) +\
     sup_kw['proc'] - identifier - params - block
 proc.set_parse_action(lambda s, loc, tokens: Proc(s, loc, *tokens))
-parser = proc.ignore(pp.dbl_slash_comment)
+
+fn = pp.Opt(precondition, None) + sup_kw['fn'] - identifier - params - assign - expr - semi
+fn.set_parse_action(lambda s, loc, tokens: Fn(s, loc, *tokens))
+decls = proc | fn
+program = decls[1, ...]
+parser = program
+parser.ignore(pp.dbl_slash_comment)

@@ -118,5 +118,12 @@ class Proc(Declaration):
     params: list[Identifier]
     body: Block
 
+@dataclass(frozen=True, repr=False)
+class Fn(Declaration):
+    pre: Expr | None
+    name: Identifier
+    params: list[Identifier]
+    expr: Expr
+
 class HLDError(RuntimeError):
     pass

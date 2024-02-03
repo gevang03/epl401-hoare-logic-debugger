@@ -31,8 +31,10 @@ class Vm:
     def __init__(self, prog: list[Inst]):
         self.prog = prog
 
-    def run(self, vars: dict[str, int]):
+    # NOTE: runs the first function only
+    def run(self, procs: dict[str, dict[str, int]]) -> dict[str, int]:
         prog = self.prog
+        _, vars = procs.popitem()
         stack: list[int] = [0] * len(vars)
         ip = 0
         length = len(prog)
