@@ -28,6 +28,7 @@ assert = 'assert', expression, ';';
 assignment = identifier, '::=', expression, ';';
 while = [invariant], [variant], 'while', expression, block;
 block = '{', {statement}, '}';
+return = 'return', expression, ';';
 
 (* EXPRESSIONS *)
 expression = primary | ternary_expr;
@@ -160,5 +161,16 @@ $$
 }
 {
     \{\phi[a_i/x_i]\}\; f(a_1, ..., a_n)\; \{\psi[a_i/x_i]\}
+}
+$$
+
+### Return Rule
+$$
+\frac
+{
+    \{\phi\}\; \texttt{proc}\; f(x_1, ..., x_n)\; B\; \{\psi\}
+}
+{
+    \{\psi[E/f(x_1, ..., x_n)]\}\; \texttt{return}\; E;\;\{\psi\}
 }
 $$

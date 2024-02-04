@@ -130,6 +130,10 @@ class __Context:
     def _(self, assert_: Assert):
         self.typecheck(assert_.expr, ValueType.Bool)
 
+    @check_statement.register
+    def _(self, return_: Return):
+        self.typecheck(return_.expr, ValueType.Int)
+
     @singledispatchmethod
     def check_declaration(self, _: Declaration):
         raise NotImplementedError

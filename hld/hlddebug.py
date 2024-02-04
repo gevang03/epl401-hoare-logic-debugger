@@ -29,6 +29,7 @@ class __Context:
     def __init__(self, correctness: Correctness, symtab: dict[str, dict[str, ValueType]]):
         self.correctness = correctness
         self.symtab = symtab
+        self.current: Declaration
         self.variables: dict[str, ValueType] = {}
         self.fns: dict[str, z3.BoolRef]
 
@@ -170,6 +171,20 @@ class __Context:
             assert_.error(f'assertion does not hold, condition found at assertion: {simplify(post)}\ncounter-example: {s.model()}')
         return post
 
+    @propagate.register
+    def _(self, return_: Return, _: z3.BoolRef) -> z3.BoolRef:
+        proc = self.current
+        assert isinstance(proc, Proc)
+        post = self.expr_to_z3(proc.post)
+        assert isinstance(post, z3.BoolRef)
+        expr = self.expr_to_z3(return_.expr)
+        sig = [z3.IntSort()] * (len(proc.params) + 1)
+        params = [self.expr_to_z3(param) for param in proc.params]
+        func = z3.RecFunction(proc.name.value, *sig)
+        res = z3.substitute(post, (func(*params), expr))
+        assert isinstance(res, z3.BoolRef)
+        return res
+
     def _partial_while(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
         invariant = self.expr_to_z3(while_.invariant)
         assert isinstance(invariant, z3.BoolRef)
@@ -216,6 +231,7 @@ class __Context:
 
     @singledispatchmethod
     def verify(self, proc: Proc) -> z3.BoolRef:
+        self.current = proc
         self.variables = self.symtab[proc.name.value]
         post = self.expr_to_z3(proc.post)
         assertion = self.propagate(proc.body, post)

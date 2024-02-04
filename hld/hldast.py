@@ -111,6 +111,10 @@ class Assert(Statement):
     expr: Expr
 
 @dataclass(frozen=True, repr=False)
+class Return(Statement):
+    expr: Expr
+
+@dataclass(frozen=True, repr=False)
 class Proc(Declaration):
     pre: Expr | None
     post: Expr | None

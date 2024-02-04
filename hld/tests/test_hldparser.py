@@ -80,5 +80,8 @@ class TestHldParser(unittest.TestCase):
     def test_assert(self):
         self._test(hldparser.assert_, 'assert false;', hldast.Assert, {'expr.value': False})
 
+    def test_return(self):
+        self._test(hldparser.return_, 'return 35;', hldast.Return, {'expr.value': 35})
+
     def test_proc(self):
         self._test(hldparser.proc, 'proc foo() {}', hldast.Proc, {'name.value': 'foo'})

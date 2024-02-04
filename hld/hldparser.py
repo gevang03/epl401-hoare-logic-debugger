@@ -105,7 +105,9 @@ while_ = pp.Opt(invariant, None) + pp.Opt(variant, None) + sup_kw['while'] - exp
 while_.set_parse_action(lambda s, loc, tokens: While(s, loc, *tokens))
 assert_ = sup_kw['assert'] - expr - semi
 assert_.set_parse_action(lambda s, loc, tokens: Assert(s, loc, *tokens))
-statement <<= ifelse | while_ | assert_ | assignment
+return_ = sup_kw['return'] - expr - semi
+return_.set_parse_action(lambda s, loc, tokens: Return(s, loc, *tokens))
+statement <<= ifelse | return_ | assert_ | assignment | while_
 
 params = left_paren - pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) - right_paren
 
