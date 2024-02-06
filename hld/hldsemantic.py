@@ -143,8 +143,10 @@ class __Context:
         self.check_params(proc)
         if proc.pre != None:
             self.typecheck_meta(proc.pre, ValueType.Bool)
+        # FIXME: typechecking body should happen after postcondition to avoid reference of local variables
         self.check_statement(proc.body)
         if proc.post != None:
+            # FIXME: definition of symbolic variables is allowed
             self.typecheck_meta(proc.post, ValueType.Bool)
 
     @check_declaration.register

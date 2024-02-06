@@ -1,5 +1,10 @@
 # Hoare Logic Debugger
 
+## Requirements
+```sh
+$ pip install -r requirements.txt
+```
+
 ## Usage
 ```sh
 $ ./hld/run.py [OPTIONS] FILE
@@ -156,11 +161,11 @@ $$
 $$
 \frac
 {
-    \{\phi\}\; \texttt{proc} f(x_1, ..., x_n)\; B\; \{\psi\}\quad
-    \phi[a_i/x_i]
+    \{\phi\}\; \texttt{proc} f(\bar{x})\; B\; \{\psi\}\quad
+    \phi[\bar{a}/\bar{x}]
 }
 {
-    \{\phi[a_i/x_i]\}\; f(a_1, ..., a_n)\; \{\psi[a_i/x_i]\}
+    \{\phi[\bar{a}/\bar{x}]\}\; f(\bar{a})\; \{\psi[\bar{a}/\bar{x}]\}
 }
 $$
 
@@ -168,9 +173,9 @@ $$
 $$
 \frac
 {
-    \{\phi\}\; \texttt{proc}\; f(x_1, ..., x_n)\; B\; \{\psi\}
+    \{\phi\}\; \texttt{proc}\; f(\bar{x})\; B\; \{\psi\}
 }
 {
-    \{\psi[E/f(x_1, ..., x_n)]\}\; \texttt{return}\; E;\;\{\psi\}
+    \{\psi[E/f(\bar{x})]\}\; \texttt{return}\; E;\;\{\psi\}
 }
 $$
