@@ -17,7 +17,6 @@ _infix_rel_ops = {
 
 def simplify(expr: z3.BoolRef | z3.ArithRef) -> z3.BoolRef | z3.ArithRef:
     ret = z3.Tactic('ctx-solver-simplify').apply(expr).as_expr()
-    ret = z3.simplify(ret, arith_lhs=True)
     assert isinstance(ret, (z3.BoolRef, z3.ArithRef))
     return ret
 
@@ -31,15 +30,15 @@ class __Context:
         self.symtab = symtab
         self.current: Declaration
         self.variables: dict[str, ValueType] = {}
-        self.fns: dict[str, z3.BoolRef]
+        self.fns: dict[str, tuple[list[z3.ArithRef], z3.ArithRef]] = {}
 
-    # TODO: 
     def add_fn(self, fn: Fn):
-        sig = [z3.IntSort()] * (len(fn.params) + 1)
-        f = z3.RecFunction(fn.name.value, *sig)
-        vars = [z3.Int(param.value) for param in fn.params]
+        self.current = fn
+        self.variables = self.symtab[fn.name.value]
+        params = [z3.Int(param.value) for param in fn.params]
         expr = self.expr_to_z3(fn.expr)
-        self.fns[fn.name.value] = z3.ForAll(vars, f(*vars) == expr)
+        assert isinstance(expr, z3.ArithRef)
+        self.fns[fn.name.value] = (params, expr)
 
     @singledispatchmethod
     @cache
@@ -120,6 +119,22 @@ class __Context:
         else_expr = self.expr_to_z3(expr.else_expr)
         res = z3.If(cond, then_expr, else_expr)
         assert isinstance(res, (z3.BoolRef, z3.ArithRef))
+        return res
+
+    @expr_to_z3.register
+    def _(self, call: CallExpr) -> z3.ArithRef:
+        name = call.callee.value
+        args = (self.expr_to_z3(arg) for arg in call.args)
+        sig = (z3.IntSort() for _ in call.args)
+        f = z3.RecFunction(name, *sig, z3.IntSort())
+        try:
+            # fn call
+            params, value = self.fns[name]
+            res = z3.substitute(value, *zip(params, args))
+        except KeyError:
+            # proc call
+            res = f(*args)
+        assert isinstance(res, z3.ArithRef)
         return res
 
     @singledispatchmethod
@@ -257,7 +272,7 @@ def get_pre(decls: list[Declaration], correctness: Correctness, symtab: dict[str
             pres[decl.name.value] = ctx.verify(decl)
         else:
             assert isinstance(decl, Fn)
-            raise NotImplementedError
+            ctx.add_fn(decl)
     return pres
 
 # NOTE: unused

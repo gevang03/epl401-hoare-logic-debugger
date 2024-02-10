@@ -112,6 +112,11 @@ class __Context:
         self.backpatch(l1)
 
     @compile.register
+    def _(self, call: CallExpr):
+        # TODO:
+        raise NotImplementedError
+
+    @compile.register
     def _(self, assignment: Assignment):
         self.compile(assignment.value)
         dest = self.get_variable(assignment.dest.value)
@@ -148,6 +153,11 @@ class __Context:
     def _(self, assert_: Assert):
         self.compile(assert_.expr)
         self.emit(Opcode.ASSERT)
+
+    @compile.register
+    def _(self, return_: Return):
+        # TODO:
+        raise NotImplementedError
 
     @compile.register
     def _(self, proc: Proc):

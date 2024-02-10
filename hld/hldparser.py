@@ -9,8 +9,8 @@ _infix_arith_ops = { '+', '-', '*' }
 _infix_log_ops = { '&&', '||' }
 _infix_rel_ops = { '<', '<=', '==', '!=', '>', '>=' }
 
-def ternary_ctor(src: str, loc: int, tokens: pp.ParseResults) -> TernaryExpr:
-    [cond, q_mark, then_expr, colon, else_expr], = tokens
+def ternary_ctor(src: str, loc: int, toks: pp.ParseResults) -> TernaryExpr:
+    [cond, q_mark, then_expr, colon, else_expr], = toks
     assert isinstance(cond, Expr)
     assert q_mark == '?'
     assert isinstance(then_expr, Expr)
@@ -18,14 +18,14 @@ def ternary_ctor(src: str, loc: int, tokens: pp.ParseResults) -> TernaryExpr:
     assert isinstance(else_expr, Expr)
     return TernaryExpr(src, loc, cond, then_expr, else_expr)
 
-def infix_ctor(src: str, loc: int, tokens: pp.ParseResults) -> Expr:
-    tokens, = tokens
-    left = tokens[0]
+def infix_ctor(src: str, loc: int, toks: pp.ParseResults) -> Expr:
+    toks, = toks
+    left = toks[0]
     assert isinstance(left, Expr)
-    for i in range(len(tokens) // 2):
-        op = tokens[2 * i + 1]
+    for i in range(len(toks) // 2):
+        op = toks[2 * i + 1]
         assert isinstance(op, str)
-        right = tokens[2 * i + 2]
+        right = toks[2 * i + 2]
         assert isinstance(right, Expr)
         if op in _infix_arith_ops:
             left = InfixArithmeticExpr(src, loc, op, left, right)
@@ -36,8 +36,8 @@ def infix_ctor(src: str, loc: int, tokens: pp.ParseResults) -> Expr:
             left = InfixRelationalExpr(src, loc, op, left, right)
     return left
 
-def prefix_ctor(src: str, loc: int, tokens: pp.ParseResults) -> PrefixExpr:
-    [op, expr], = tokens
+def prefix_ctor(src: str, loc: int, toks: pp.ParseResults) -> PrefixExpr:
+    [op, expr], = toks
     assert isinstance(op, str)
     assert isinstance(expr, Expr)
     if op in { '+', '-' }:
@@ -85,7 +85,11 @@ assoc_table = [
     (or_op, 2, pp.OpAssoc.LEFT, infix_ctor),
     (ternary_op, 3, pp.OpAssoc.RIGHT, ternary_ctor),
 ]
-expr = pp.infix_notation(int_lit | bool_lit | identifier, assoc_table)
+expr = pp.Forward()
+args = left_paren - pp.Opt(pp.Group(pp.DelimitedList(expr), True), []) - right_paren
+call = identifier - args
+call.set_parse_action(lambda s, loc, toks: CallExpr(s, loc, *toks))
+expr <<= pp.infix_notation(int_lit | bool_lit | identifier + ~left_paren | call, assoc_table)
 expr.set_name('expression')
 
 precondition = sup_kw['#pre'] - expr
@@ -95,28 +99,28 @@ variant = sup_kw['#variant'] - expr
 
 statement = pp.Forward()
 assignment = identifier - assign - expr - semi
-assignment.set_parse_action(lambda s, loc, tokens: Assignment(s, loc, tokens[0], tokens[1]))
+assignment.set_parse_action(lambda s, loc, toks: Assignment(s, loc, toks[0], toks[1]))
 block = left_brace - pp.Group(statement[...], True) - right_brace
-block.set_parse_action(lambda s, loc, tokens: Block(s, loc, *tokens))
+block.set_parse_action(lambda s, loc, toks: Block(s, loc, *toks))
 ifelse = pp.Forward()
 ifelse <<= sup_kw['if'] - expr - block - sup_kw['else'] - (ifelse | block)
-ifelse.set_parse_action(lambda s, loc, tokens: IfElse(s, loc, *tokens))
+ifelse.set_parse_action(lambda s, loc, toks: IfElse(s, loc, *toks))
 while_ = pp.Opt(invariant, None) + pp.Opt(variant, None) + sup_kw['while'] - expr - block
-while_.set_parse_action(lambda s, loc, tokens: While(s, loc, *tokens))
+while_.set_parse_action(lambda s, loc, toks: While(s, loc, *toks))
 assert_ = sup_kw['assert'] - expr - semi
-assert_.set_parse_action(lambda s, loc, tokens: Assert(s, loc, *tokens))
+assert_.set_parse_action(lambda s, loc, toks: Assert(s, loc, *toks))
 return_ = sup_kw['return'] - expr - semi
-return_.set_parse_action(lambda s, loc, tokens: Return(s, loc, *tokens))
+return_.set_parse_action(lambda s, loc, toks: Return(s, loc, *toks))
 statement <<= ifelse | return_ | assert_ | assignment | while_
 
 params = left_paren - pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) - right_paren
 
 proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) +\
     sup_kw['proc'] - identifier - params - block
-proc.set_parse_action(lambda s, loc, tokens: Proc(s, loc, *tokens))
+proc.set_parse_action(lambda s, loc, toks: Proc(s, loc, *toks))
 
 fn = pp.Opt(precondition, None) + sup_kw['fn'] - identifier - params - assign - expr - semi
-fn.set_parse_action(lambda s, loc, tokens: Fn(s, loc, *tokens))
+fn.set_parse_action(lambda s, loc, toks: Fn(s, loc, *toks))
 decls = proc | fn
 program = decls[1, ...]
 parser = program

@@ -85,6 +85,11 @@ class TernaryExpr(Expr):
     else_expr: Expr
 
 @dataclass(frozen=True, repr=False)
+class CallExpr(Expr):
+    callee: Identifier
+    args: list[Expr]
+
+@dataclass(frozen=True, repr=False)
 class Assignment(Statement):
     dest: Identifier
     value: Expr

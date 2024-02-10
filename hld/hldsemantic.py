@@ -89,6 +89,24 @@ class __Context:
         self.typecheck(expr.else_expr, then_type)
         return then_type
 
+    @typeof.register
+    def _(self, expr: CallExpr) -> ValueType:
+        name = expr.callee.value
+        try:
+            decl = self.decls[name]
+            assert isinstance(decl, (Fn, Proc))
+            expected = len(decl.params)
+            actual = len(expr.args)
+            if expected != actual:
+                expr.error(f'callable `{name}` expects {expected} arguments, but was given {actual}')
+            if isinstance(decl, Fn) and not self.in_metacond:
+                expr.error(f'fn `{name}` cannot be called in a procedure')
+        except KeyError:
+            expr.error(f'callable `{name}` not defined')
+        for arg in expr.args:
+            self.typecheck(arg, ValueType.Int)
+        return ValueType.Int
+
     @singledispatchmethod
     def check_statement(self, _: Statement):
         raise NotImplementedError
@@ -154,7 +172,7 @@ class __Context:
         self.check_params(fn)
         if fn.pre != None:
             self.typecheck_meta(fn.pre, ValueType.Bool)
-        self.typecheck(fn.expr, ValueType.Int)
+        self.typecheck_meta(fn.expr, ValueType.Int)
 
     def check_params(self, decl: Fn | Proc):
         for param in decl.params:
