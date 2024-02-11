@@ -25,20 +25,25 @@ class Correctness(Enum):
     TOTAL = 'total'
 
 class __Context:
+    result = z3.Int('result')
+
     def __init__(self, correctness: Correctness, symtab: dict[str, dict[str, ValueType]]):
         self.correctness = correctness
         self.symtab = symtab
         self.current: Declaration
         self.variables: dict[str, ValueType] = {}
-        self.fns: dict[str, tuple[list[z3.ArithRef], z3.ArithRef]] = {}
+        self.fns: dict[str, z3.FuncDeclRef] = {}
 
     def add_fn(self, fn: Fn):
         self.current = fn
-        self.variables = self.symtab[fn.name.value]
+        name = fn.name.value
+        self.variables = self.symtab[name]
         params = [z3.Int(param.value) for param in fn.params]
+        sig = (z3.IntSort() for _ in fn.params)
+        f = z3.RecFunction(name, *sig, z3.IntSort())
+        self.fns[fn.name.value] = f
         expr = self.expr_to_z3(fn.expr)
-        assert isinstance(expr, z3.ArithRef)
-        self.fns[fn.name.value] = (params, expr)
+        z3.RecAddDefinition(f, params, expr)
 
     @singledispatchmethod
     @cache
@@ -125,17 +130,22 @@ class __Context:
     def _(self, call: CallExpr) -> z3.ArithRef:
         name = call.callee.value
         args = (self.expr_to_z3(arg) for arg in call.args)
-        sig = (z3.IntSort() for _ in call.args)
-        f = z3.RecFunction(name, *sig, z3.IntSort())
         try:
             # fn call
-            params, value = self.fns[name]
-            res = z3.substitute(value, *zip(params, args))
+            f = self.fns[name]
+            res = f(*args)
         except KeyError:
             # proc call
+            # call.error(f'procedure calls are not allowed inside expressions')
+            sig = (z3.IntSort() for _ in call.args)
+            f = z3.RecFunction(name, *sig, z3.IntSort())
             res = f(*args)
         assert isinstance(res, z3.ArithRef)
         return res
+
+    @expr_to_z3.register
+    def _(self, _: ResultExpr) -> z3.ArithRef:
+        return self.result
 
     @singledispatchmethod
     def propagate(self, _: Statement, _post: z3.BoolRef) -> z3.BoolRef:
@@ -163,10 +173,10 @@ class __Context:
         assertion = post
         for statement in reversed(block.statements):
             assertion = self.propagate(statement, assertion)
-            s = z3.Solver()
-            s.add(assertion)
-            if s.check() == z3.unsat:
-                statement.error(f'precondition {assertion} found at statement is unsatisfiable')
+            # s = z3.Solver()
+            # s.add(assertion)
+            # if s.check() == z3.unsat:
+            #     statement.error(f'precondition {assertion} found at statement is unsatisfiable')
         return assertion
 
     @propagate.register
@@ -193,10 +203,7 @@ class __Context:
         post = self.expr_to_z3(proc.post)
         assert isinstance(post, z3.BoolRef)
         expr = self.expr_to_z3(return_.expr)
-        sig = [z3.IntSort()] * (len(proc.params) + 1)
-        params = [self.expr_to_z3(param) for param in proc.params]
-        func = z3.RecFunction(proc.name.value, *sig)
-        res = z3.substitute(post, (func(*params), expr))
+        res = z3.substitute(post, (self.result, expr))
         assert isinstance(res, z3.BoolRef)
         return res
 
@@ -250,10 +257,10 @@ class __Context:
         self.variables = self.symtab[proc.name.value]
         post = self.expr_to_z3(proc.post)
         assertion = self.propagate(proc.body, post)
-        s = z3.Solver()
-        s.add(assertion)
-        if s.check() == z3.unsat:
-            proc.error(f'precondition {simplify(assertion)} found is unsatisfiable')
+        # s = z3.Solver()
+        # s.add(assertion)
+        # if s.check() == z3.unsat:
+        #     proc.error(f'precondition {simplify(assertion)} found is unsatisfiable')
         if proc.pre != None:
             s = z3.Solver()
             pre = self.expr_to_z3(proc.pre)

@@ -47,7 +47,7 @@ def prefix_ctor(src: str, loc: int, toks: pp.ParseResults) -> PrefixExpr:
         return PrefixLogicalExpr(src, loc, op, expr)
 
 keywords = {
-    'assert', 'if', 'else', 'proc', 'fn', 'while', 'true', 'false', 'return',
+    'assert', 'if', 'else', 'proc', 'fn', 'while', 'true', 'false', 'return', 'result',
     '#pre', '#post', '#invariant', '#variant'
 }
 kw = {k: pp.Keyword(k) for k in keywords}
@@ -60,6 +60,7 @@ int_lit = pp.pyparsing_common.integer.copy()
 int_lit.set_parse_action(lambda s, loc, toks: IntLiteral(s, loc, int(toks[0])))
 bool_lit: pp.ParserElement = kw['true'] | kw['false']
 bool_lit.set_parse_action(lambda s, loc, toks: BoolLiteral(s, loc, toks[0] == 'true'))
+result = kw['result'].set_parse_action(lambda s, loc, _: ResultExpr(s, loc))
 
 assign = pp.Suppress(':=')
 semi = pp.Suppress(';')
@@ -89,7 +90,8 @@ expr = pp.Forward()
 args = left_paren - pp.Opt(pp.Group(pp.DelimitedList(expr), True), []) - right_paren
 call = identifier - args
 call.set_parse_action(lambda s, loc, toks: CallExpr(s, loc, *toks))
-expr <<= pp.infix_notation(int_lit | bool_lit | identifier + ~left_paren | call, assoc_table)
+primary = int_lit | bool_lit | result | identifier + ~left_paren | call
+expr <<= pp.infix_notation(primary, assoc_table)
 expr.set_name('expression')
 
 precondition = sup_kw['#pre'] - expr

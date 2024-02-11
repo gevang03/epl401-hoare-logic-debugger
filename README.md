@@ -157,15 +157,34 @@ $$
 }
 $$
 
+### Proc Rule
+$$
+\frac
+{
+    \{\phi\}\; B\; \{\psi\}\quad
+     vars(\phi, \psi) \subseteq \{\bar{x}\}
+
+}
+{
+    \{\phi\}\; \texttt{proc}\; f(\bar{x})\; B\; \{\psi\}
+}
+$$
+
 ### Function Call Rule
 $$
 \frac
 {
-    \{\phi\}\; \texttt{proc} f(\bar{x})\; B\; \{\psi\}\quad
-    \phi[\bar{a}/\bar{x}]
+    \{\phi\}\; \texttt{proc}\; f(\bar{x})\; B\; \{\psi\}\quad
+    y \notin \bar{a}\quad
 }
 {
-    \{\phi[\bar{a}/\bar{x}]\}\; f(\bar{a})\; \{\psi[\bar{a}/\bar{x}]\}
+    \{
+        \phi[\bar{a}/\bar{x}]
+            \land \psi[y/\texttt{result},\bar{a}/\bar{x}]
+        \to \eta
+    \}\;
+    y := f(\bar{a});\;
+    \{\eta\}
 }
 $$
 
@@ -173,9 +192,10 @@ $$
 $$
 \frac
 {
-    \{\phi\}\; \texttt{proc}\; f(\bar{x})\; B\; \{\psi\}
+    \{\phi\}\; \texttt{proc}\; f(\bar{x})\; B\; \{\psi\}\quad
+    \texttt{return}\; E;\in B
 }
 {
-    \{\psi[E/f(\bar{x})]\}\; \texttt{return}\; E;\;\{\psi\}
+    \{\psi[E/\texttt{result}]\}\; \texttt{return}\; E;\;\{\psi\}
 }
 $$

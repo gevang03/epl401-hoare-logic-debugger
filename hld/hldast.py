@@ -84,6 +84,9 @@ class TernaryExpr(Expr):
     then_expr: Expr
     else_expr: Expr
 
+class ResultExpr(Expr):
+    pass
+
 @dataclass(frozen=True, repr=False)
 class CallExpr(Expr):
     callee: Identifier
