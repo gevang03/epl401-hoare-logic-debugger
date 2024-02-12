@@ -33,6 +33,7 @@ class __Context:
         self.current: Declaration
         self.variables: dict[str, ValueType] = {}
         self.fns: dict[str, z3.FuncDeclRef] = {}
+        self.procs: dict[str, Proc] = {}
 
     def add_fn(self, fn: Fn):
         self.current = fn
@@ -153,11 +154,31 @@ class __Context:
 
     @propagate.register
     def _(self, assignment: Assignment, post: z3.BoolRef) -> z3.BoolRef:
+        if isinstance(assignment.value, CallExpr):
+            return self._assignment_call(assignment, post)
+        else:
+            return self._assignment_value(assignment, post)
+
+    def _assignment_value(self, assignment: Assignment, post: z3.BoolRef) -> z3.BoolRef:
         dest = self.expr_to_z3(assignment.dest)
         value = self.expr_to_z3(assignment.value)
         res = z3.substitute(post, (dest, value))
         assert isinstance(res, z3.BoolRef)
         return res
+    
+    def _assignment_call(self, assignment: Assignment, post: z3.BoolRef) -> z3.BoolRef:
+        call = assignment.value
+        assert isinstance(call, CallExpr)
+        dest = self.expr_to_z3(assignment.dest)
+        proc = self.procs[call.callee.value]
+        args = map(self.expr_to_z3, call.args)
+        params = map(self.expr_to_z3, proc.params)
+        subs = zip(params, args)
+        proc_pre = True if proc.pre == None else self.expr_to_z3(proc.pre)
+        proc_pre = z3.substitute(proc_pre, *subs)
+        proc_post = True if proc.post == None else self.expr_to_z3(proc.post)
+        proc_post = z3.substitute(proc_post, *subs, (self.result, dest))
+        return z3.Implies(z3.And(proc_pre, proc_post), post)
 
     @propagate.register
     def _(self, ifelse: IfElse, post: z3.BoolRef) -> z3.BoolRef:
@@ -253,8 +274,10 @@ class __Context:
 
     @singledispatchmethod
     def verify(self, proc: Proc) -> z3.BoolRef:
+        name = proc.name.value
+        self.procs[name] = proc
         self.current = proc
-        self.variables = self.symtab[proc.name.value]
+        self.variables = self.symtab[name]
         post = self.expr_to_z3(proc.post)
         assertion = self.propagate(proc.body, post)
         # s = z3.Solver()

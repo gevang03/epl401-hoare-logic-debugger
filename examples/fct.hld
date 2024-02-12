@@ -1,0 +1,16 @@
+#pre n >= 0
+fn fct(n) := n <= 0 ? 1 : n * fct(n - 1);
+
+#pre x >= 0
+#post result == fct(x)
+proc calc_fct(x) {
+    y := 1;
+    z := 0;
+    #invariant z >= 0 && fct(z) == y
+    #variant x - z
+    while z != x {
+        z := z + 1;
+        y := y * z;
+    }
+    return y;
+}

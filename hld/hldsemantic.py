@@ -101,7 +101,7 @@ class __Context:
                 expr.error(f'callable `{name}` expects {expected} arguments, but was given {actual}')
             if isinstance(decl, Fn) and not self.in_metacond:
                 expr.error(f'fn `{name}` cannot be called in a procedure')
-            if isinstance(decl, Proc) and not self.in_metacond:
+            if isinstance(decl, Proc) and self.in_metacond:
                 expr.error(f'proc `{name}` cannot be called in a metacondition')
         except KeyError:
             expr.error(f'callable `{name}` not defined')
