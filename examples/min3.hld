@@ -1,0 +1,13 @@
+fn min(x, y) := x < y ? x : y;
+
+#post result == min(x, min(y, z))
+proc min3(x, y, z) {
+  a := x;
+  if y < a {
+    a := y;
+  } else {}
+  if z < a {
+    a := z;
+  } else {}
+  return a;
+}

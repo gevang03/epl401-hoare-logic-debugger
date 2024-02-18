@@ -1,9 +1,10 @@
 #pre true
-#post z == (x < y ? x : y)
+#post result == (x < y ? x : y)
 proc min(x, y) {
   if x <= y {
     z := x;
   } else {
     z := y;
   }
+  return z;
 }

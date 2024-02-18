@@ -1,7 +1,0 @@
-#pre x == $x && y == $y
-#post x == $y && y == $x
-proc swap(x, y) {
-    t := x;
-    x := y;
-    y := t;
-}

@@ -54,7 +54,7 @@ kw = {k: pp.Keyword(k) for k in keywords}
 sup_kw = {k: pp.Suppress(v) for k, v in kw.items()}
 
 not_kw = ~pp.MatchFirst(kw.values())
-identifier = not_kw + pp.Regex('\\$?[a-zA-z_][a-zA-z0-9_]*')
+identifier = not_kw + pp.Regex('[a-zA-z_][a-zA-z0-9_]*')
 identifier.set_parse_action(lambda s, loc, toks: Identifier(s, loc, toks[0]))
 int_lit = pp.pyparsing_common.integer.copy()
 int_lit.set_parse_action(lambda s, loc, toks: IntLiteral(s, loc, int(toks[0])))

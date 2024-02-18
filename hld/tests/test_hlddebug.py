@@ -11,13 +11,14 @@ import hldsemantic
 class TestHldDebug(unittest.TestCase):
     def test_assignments(self):
         program = '''
-#post z == x + 2 * y
+#post result == x + 2 * y
 proc linear(x, y) {
   a := x;
   b := y;
   a := a + b;
   z := b;
   z := z + a;
+  return z;
 }
 '''
         ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
@@ -29,13 +30,14 @@ proc linear(x, y) {
     def test_ifelse(self):
         program = '''
 #pre true
-#post z == (x < y ? x : y)
+#post result == (x < y ? x : y)
 proc min(x, y) {
   if x < y {
     z := x;
   } else {
     z := y;
   }
+  return z;
 }
 '''
         ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
@@ -46,7 +48,7 @@ proc min(x, y) {
 
     def test_while_partial(self):
         program = '''
-#post total == n * (n - 1)
+#post result == n * (n - 1)
 proc sum(n) {
   i := 0;
   total := 0;
@@ -55,6 +57,7 @@ proc sum(n) {
     total := total + 2 * i;
     i := i + 1;
   }
+  return total;
 }
 '''
         ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
@@ -65,7 +68,7 @@ proc sum(n) {
 
     def test_while_total(self):
         program = '''
-#post total == n * (n - 1)
+#post result == n * (n - 1)
 proc sum(n) {
   i := 0;
   total := 0;
@@ -75,6 +78,7 @@ proc sum(n) {
     total := total + 2 * i;
     i := i + 1;
   }
+  return total;
 }
 '''
         ast = hldparser.parser.parse_string(program, parse_all=True).as_list()

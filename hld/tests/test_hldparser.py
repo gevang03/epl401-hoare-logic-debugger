@@ -34,7 +34,7 @@ class TestHldParser(unittest.TestCase):
         self._test_value(hldparser.identifier, value, value, hldast.Identifier)
 
     def test_prefix_arith(self):
-        self._test(hldparser.expr, '-(a+$b)', hldast.PrefixArithmeticExpr, {'op': '-'})
+        self._test(hldparser.expr, '-(a+b)', hldast.PrefixArithmeticExpr, {'op': '-'})
         self._test(hldparser.expr, '+(b*3)', hldast.PrefixArithmeticExpr, {'op': '+'})
 
     def test_prefix_logical(self):

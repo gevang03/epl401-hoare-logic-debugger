@@ -1,8 +1,10 @@
-#post x == 10
-proc foo(x) {
+#post result == 10
+proc foo(a) {
+    x := a;
     #invariant x <= 10
     #variant 10 - x
     while x < 10 {
         x := x + 1;
     }
+    return x;
 }

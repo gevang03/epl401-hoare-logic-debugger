@@ -2,11 +2,17 @@
 
 from hldast import *
 from functools import cache, singledispatchmethod
-from enum import Enum
+from enum import Enum, IntEnum, IntFlag
 
 class ValueType(Enum):
     Int = 'int'
     Bool = 'bool'
+
+class ContextType(IntEnum):
+    Code = 0b0001
+    Metacond = 0b0010
+    Postcond = 0b0110
+    Assignment = 0b1001
 
 def check_program(decls: list[Declaration]) -> dict[str, dict[str, ValueType]]:
     ctx = __Context()
@@ -15,14 +21,25 @@ def check_program(decls: list[Declaration]) -> dict[str, dict[str, ValueType]]:
 class __Context:
     def __init__(self):
         self.decls: dict[str, Declaration] = {}
+        self.params: set[str] = set()
         self.variables: dict[str, ValueType] = {}
-        self.in_metacond = False
+        self.ctx_type: ContextType = ContextType.Code
 
-    def typecheck_meta(self, expr: Expr, expected: ValueType):
-        prev = self.in_metacond
-        self.in_metacond = True
+    def _ctx_is(self, ctx_type: ContextType) -> bool:
+        return self.ctx_type & ctx_type == ctx_type
+
+    def typeof_with_ctx(self, expr: Expr, ctx_type: ContextType) -> ValueType:
+        prev = self.ctx_type
+        self.ctx_type = ctx_type
+        type = self.typeof(expr)
+        self.ctx_type = prev
+        return type
+
+    def typecheck_with_ctx(self, expr: Expr, expected: ValueType, ctx_type: ContextType):
+        prev = self.ctx_type
+        self.ctx_type = ctx_type
         self.typecheck(expr, expected)
-        self.in_metacond = prev
+        self.ctx_type = prev
 
     def typecheck(self, expr: Expr, expected: ValueType):
         actual = self.typeof(expr)
@@ -44,11 +61,6 @@ class __Context:
 
     @typeof.register
     def _(self, expr: Identifier) -> ValueType:
-        if expr.value[0] == '$':
-            if not self.in_metacond:
-                expr.error(f'symbolic variable `{expr.value}` is not allowed outside of meta conditions')
-            self.variables[expr.value] = ValueType.Int
-            return ValueType.Int
         try:
             return self.variables[expr.value]
         except:
@@ -90,28 +102,57 @@ class __Context:
         return then_type
 
     @typeof.register
-    def _(self, expr: CallExpr) -> ValueType:
-        name = expr.callee.value
+    def _(self, call: CallExpr) -> ValueType:
+        if self._ctx_is(ContextType.Metacond):
+            return self._typeof_metacond(call)
+        assert self._ctx_is(ContextType.Code)
+        return self._typeof_code(call)
+
+    def _typeof_metacond(self, call: CallExpr) -> ValueType:
+        assert self._ctx_is(ContextType.Metacond)
+        name = call.callee.value
         try:
             decl = self.decls[name]
-            assert isinstance(decl, (Fn, Proc))
-            expected = len(decl.params)
-            actual = len(expr.args)
+            if isinstance(decl, Proc):
+                call.error(f'proc `{name} cannot be called in metacondition')
+            fn = decl
+            assert isinstance(fn, Fn)
+            expected = len(fn.params)
+            actual = len(call.args)
             if expected != actual:
-                expr.error(f'callable `{name}` expects {expected} arguments, but was given {actual}')
-            if isinstance(decl, Fn) and not self.in_metacond:
-                expr.error(f'fn `{name}` cannot be called in a procedure')
-            if isinstance(decl, Proc) and self.in_metacond:
-                expr.error(f'proc `{name}` cannot be called in a metacondition')
+                call.error(f'fn `{name}` expects {expected} arguments, but was given {actual}')
         except KeyError:
-            expr.error(f'callable `{name}` not defined')
-        for arg in expr.args:
+            call.error(f'fn `{name}` not defined')
+        for arg in call.args:
             self.typecheck(arg, ValueType.Int)
+        return ValueType.Int
+
+    def _typeof_code(self, call: CallExpr) -> ValueType:
+        assert self._ctx_is(ContextType.Code)
+        name = call.callee.value
+        if not self._ctx_is(ContextType.Assignment):
+            call.error('call expressions must be directly assigned to local variables')
+        try:
+            decl = self.decls[name]
+            if isinstance(decl, Fn):
+                call.error(f'fn `{name} cannot be called in code')
+            proc = decl
+            assert isinstance(proc, Proc)
+            expected = len(proc.params)
+            actual = len(call.args)
+            if expected != actual:
+                call.error(f'proc `{name}` expects {expected} arguments, but was given {actual}')
+        except KeyError:
+            call.error(f'proc `{name}` not defined')
+        self.ctx_type = ContextType.Code
+        for arg in call.args:
+            self.typecheck(arg, ValueType.Int)
+        self.ctx_type = ContextType.Assignment
         return ValueType.Int
 
     @typeof.register
     def _(self, result: ResultExpr) -> ValueType:
-        if not self.in_metacond:
+        if not self._ctx_is(ContextType.Postcond):
             result.error('result expression are not allowed outside of postconditions')
         return ValueType.Int
 
@@ -121,10 +162,13 @@ class __Context:
 
     @check_statement.register
     def _(self, assignment: Assignment):
-        etype = self.typeof(assignment.value)
         dest = assignment.dest.value
-        if dest[0] == '$':
-            assignment.error(f'cannot assign to symbolic variable `{dest}`')
+        if dest in self.params:
+            assignment.value.error(f'cannot assign to parameter {dest}')
+        if isinstance(assignment.value, CallExpr):
+            etype = self.typeof_with_ctx(assignment.value, ContextType.Assignment)
+        else:
+            etype = self.typeof(assignment.value)
         try:
             old = self.variables[dest]
             if old != etype:
@@ -141,9 +185,9 @@ class __Context:
     @check_statement.register
     def _(self, while_: While):
         if while_.invariant != None:
-            self.typecheck_meta(while_.invariant, ValueType.Bool)
+            self.typecheck_with_ctx(while_.invariant, ValueType.Bool, ContextType.Metacond)
         if while_.variant != None:
-            self.typecheck_meta(while_.variant, ValueType.Int)
+            self.typecheck_with_ctx(while_.variant, ValueType.Int, ContextType.Metacond)
         self.typecheck(while_.cond, ValueType.Bool)
         self.check_statement(while_.body)
 
@@ -168,28 +212,26 @@ class __Context:
     def _(self, proc: Proc):
         self.check_params(proc)
         if proc.pre != None:
-            self.typecheck_meta(proc.pre, ValueType.Bool)
-        # FIXME: typechecking body should happen after postcondition to avoid reference of local variables
-        self.check_statement(proc.body)
+            self.typecheck_with_ctx(proc.pre, ValueType.Bool, ContextType.Metacond)
         if proc.post != None:
-            # FIXME: definition of symbolic variables is allowed
-            self.typecheck_meta(proc.post, ValueType.Bool)
+            self.typecheck_with_ctx(proc.post, ValueType.Bool, ContextType.Postcond)
+        self.check_statement(proc.body)
 
     @check_declaration.register
     def _(self, fn: Fn):
         self.check_params(fn)
         if fn.pre != None:
-            self.typecheck_meta(fn.pre, ValueType.Bool)
-        self.typecheck_meta(fn.expr, ValueType.Int)
+            self.typecheck_with_ctx(fn.pre, ValueType.Bool, ContextType.Metacond)
+        self.typecheck_with_ctx(fn.expr, ValueType.Int, ContextType.Metacond)
 
     def check_params(self, decl: Fn | Proc):
         for param in decl.params:
             value = param.value
             if value in self.variables:
                 param.error(f'duplicate parameter `{value}`')
-            if value[0] == '$':
-                param.error(f'parameter `{value}` cannot be a symbolic value')
             self.variables[value] = ValueType.Int
+        assert len(self.variables) == len(decl.params)
+        self.params = set(self.variables.keys())
 
     def check_program(self, decls: list[Declaration]) -> dict[str, dict[str, ValueType]]:
         symtab: dict[str, dict[str, ValueType]] = {}

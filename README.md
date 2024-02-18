@@ -38,8 +38,8 @@ return = 'return', expression, ';';
 (* EXPRESSIONS *)
 expression = primary | ternary_expr;
 
-(* Using regex: /\$?[a-zA-Z_][a-zA-Z0-9_]*/ *)
-identifier = ['$'], (alpha | '_'), {alphanum | '_'};
+(* Using regex: /[a-zA-Z_][a-zA-Z0-9_]*/ *)
+identifier = (alpha | '_'), {alphanum | '_'};
 literal = bool | int;
 bool = 'true' | 'false';
 int = digits, {digits};
@@ -77,8 +77,7 @@ un_op = '+' | '-' | '!';
 ## Language Semantics
 The language semantics are based on a simply typed variant of the WHILE language.
 
-Identifiers prefixed with dollar ($) are symbolic and may appear in precondition, postcondition, variants and invariants.
-Symbolic variables and procedure parameters are always assume to be integer typed.
+Parameters are immutable.
 
 ## Hoare Logic Semantics
 

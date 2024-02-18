@@ -1,11 +1,12 @@
 #pre x == 3
-#post y == 3
+#post result == 3
 proc foo(x) {
     if x != 3 {
         y := 2;
     } else {
-        x := x * x;
-        z := x - 7;
+        t := x * x;
+        z := t - 7;
         y := z + 1;
     }
+    return y;
 }

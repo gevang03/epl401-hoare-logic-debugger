@@ -1,4 +1,4 @@
-#post z == x * y
+#post result == x * y
 proc mult(x, y) {
     a := 0;
     z := 0;
@@ -8,4 +8,5 @@ proc mult(x, y) {
         z := z + x;
         a := a + 1;
     }
+    return z;
 }

@@ -1,7 +1,8 @@
-#post y == 3
+#post result == 3
 proc foo(x) {
     y := 2;
-    x := x * x;
-    z := x - 7;
+    t := x * x;
+    z := t - 7;
     y := z + 1;
+    return y;
 }

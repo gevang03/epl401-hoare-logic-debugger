@@ -1,4 +1,4 @@
-#post total == n * (n - 1)
+#post result == n * (n - 1)
 proc sum(n) {
   i := 0;
   total := 0;
@@ -8,4 +8,5 @@ proc sum(n) {
     total := total + 2 * i;
     i := i + 1;
   }
+  return total;
 }
