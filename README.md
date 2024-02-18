@@ -157,7 +157,7 @@ $$
 }
 $$
 
-### Proc Rule
+### Proc Rule Partial
 $$
 \frac
 {
@@ -167,6 +167,20 @@ $$
 }
 {
     \{\phi\}\; \texttt{proc}\; f(\bar{x})\; B\; \{\psi\}
+}
+
+$$
+
+### Proc Rule Total
+$$
+\frac
+{
+    \{\phi \land 0 \le E = E_0\}\; B\; \{\psi \land 0 \le E \lt E_0\}\quad
+     vars(\phi, \psi) \subseteq \{\bar{x}\}
+
+}
+{
+    \{\phi \land 0 \le E\}\; \texttt{proc}\; f(\bar{x})\; B\; \{\psi\}
 }
 $$
 
@@ -180,8 +194,8 @@ $$
 {
     \{
         \phi[\bar{a}/\bar{x}]
-            \land \psi[y/\texttt{result},\bar{a}/\bar{x}]
-        \to \eta
+            \land \forall y(\psi[y/\texttt{result},\bar{a}/\bar{x}]
+        \to \eta)
     \}\;
     y := f(\bar{a});\;
     \{\eta\}
