@@ -132,7 +132,6 @@ class Proc(Declaration):
 
 @dataclass(frozen=True, repr=False)
 class Fn(Declaration):
-    pre: Expr | None
     name: Identifier
     params: list[Identifier]
     expr: Expr

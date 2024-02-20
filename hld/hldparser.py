@@ -121,7 +121,7 @@ proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) +\
     sup_kw['proc'] - identifier - params - block
 proc.set_parse_action(lambda s, loc, toks: Proc(s, loc, *toks))
 
-fn = pp.Opt(precondition, None) + sup_kw['fn'] - identifier - params - assign - expr - semi
+fn = sup_kw['fn'] - identifier - params - assign - expr - semi
 fn.set_parse_action(lambda s, loc, toks: Fn(s, loc, *toks))
 decls = proc | fn
 program = decls[1, ...]

@@ -2,13 +2,13 @@
 
 from hldast import *
 from functools import cache, singledispatchmethod
-from enum import Enum, IntEnum, IntFlag
+from enum import Enum, IntFlag
 
 class ValueType(Enum):
     Int = 'int'
     Bool = 'bool'
 
-class ContextType(IntEnum):
+class ContextType(IntFlag):
     Code = 0b0001
     Metacond = 0b0010
     Postcond = 0b0110
@@ -220,8 +220,6 @@ class __Context:
     @check_declaration.register
     def _(self, fn: Fn):
         self.check_params(fn)
-        if fn.pre != None:
-            self.typecheck_with_ctx(fn.pre, ValueType.Bool, ContextType.Metacond)
         self.typecheck_with_ctx(fn.expr, ValueType.Int, ContextType.Metacond)
 
     def check_params(self, decl: Fn | Proc):

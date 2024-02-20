@@ -1,0 +1,12 @@
+#pre true
+#post result == x + 1
+proc inc(x) {
+    return x + 1;
+}
+
+#pre x == 1
+#post result == 2
+proc foo(x) {
+    y := inc(x);
+    return y;
+}

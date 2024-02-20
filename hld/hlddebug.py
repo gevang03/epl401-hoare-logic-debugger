@@ -132,16 +132,8 @@ class __Context:
     def _(self, call: CallExpr) -> z3.ArithRef:
         name = call.callee.value
         args = (self.expr_to_z3(arg) for arg in call.args)
-        try:
-            # fn call
-            f = self.fns[name]
-            res = f(*args)
-        except KeyError:
-            # proc call
-            # call.error(f'procedure calls are not allowed inside expressions')
-            sig = (z3.IntSort() for _ in call.args)
-            f = z3.RecFunction(name, *sig, z3.IntSort())
-            res = f(*args)
+        f = self.fns[name]
+        res = f(*args)
         assert isinstance(res, z3.ArithRef)
         return res
 
@@ -200,10 +192,6 @@ class __Context:
         assertion = post
         for statement in reversed(block.statements):
             assertion = self.propagate(statement, assertion)
-            # s = z3.Solver()
-            # s.add(assertion)
-            # if s.check() == z3.unsat:
-            #     statement.error(f'precondition {assertion} found at statement is unsatisfiable')
         return assertion
 
     @propagate.register
@@ -286,10 +274,6 @@ class __Context:
         self.variables = self.symtab[name]
         post = self.expr_to_z3(proc.post)
         assertion = self.propagate(proc.body, post)
-        # s = z3.Solver()
-        # s.add(assertion)
-        # if s.check() == z3.unsat:
-        #     proc.error(f'precondition {simplify(assertion)} found is unsatisfiable')
         if proc.pre != None:
             s = z3.Solver()
             pre = self.expr_to_z3(proc.pre)

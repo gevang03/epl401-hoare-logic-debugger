@@ -22,15 +22,18 @@ Using [EBNF Notation](https://www.iso.org/standard/26153.html).
 Whitespace is not significant and ommited for brevity.
 
 ```ebnf
-program = procedure;
+program = declaration, {declaration};
+
+declaration = procedure | fn
 
 procedure = [pre], [post], 'proc', identifier, paramlist, block;
+fn = 'fn', ident, paramlist, ':=', expr, ';';
 
 (* STATEMENTS *)
 statement = ifelse | assert | assignment | while;
 ifelse = 'if', expression, block, 'else', block;
 assert = 'assert', expression, ';';
-assignment = identifier, '::=', expression, ';';
+assignment = identifier, ':=', expression, ';';
 while = [invariant], [variant], 'while', expression, block;
 block = '{', {statement}, '}';
 return = 'return', expression, ';';
@@ -39,6 +42,7 @@ return = 'return', expression, ';';
 expression = primary | ternary_expr;
 
 (* Using regex: /[a-zA-Z_][a-zA-Z0-9_]*/ *)
+(* Matches from keywords are excluded *)
 identifier = (alpha | '_'), {alphanum | '_'};
 literal = bool | int;
 bool = 'true' | 'false';
