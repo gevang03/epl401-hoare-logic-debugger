@@ -263,7 +263,7 @@ class __Context:
         s.add(z3.And(pre, cond, variant == upper, z3.Not(body_pre)))
         if s.check() != z3.unsat:
             supplementary = f'\tbody pre: {simplify(body_pre)}'
-            while_.body.error(f'invariant and guard and variant do not imply while body precondition.\n{supplementary}')
+            while_.body.error(f'invariant and guard and variant do not imply while body precondition.\n{supplementary}\ncounter-example: {s.model()}')
         return pre
 
     @singledispatchmethod
