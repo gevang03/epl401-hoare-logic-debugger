@@ -27,8 +27,8 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
                  help='display inferences step by step'
                  )
     p.add_option('--run',
-                 action='store_true',
-                 default=False,
+                 action='store',
+                 type='string',
                  help='run program'
                  )
     p.add_option('--dis',
@@ -38,13 +38,20 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
                  )
     return p.parse_args(argv)
 
-def run(filename: str) -> None | int:
+def run(filename: str, call: str) -> None | int:
     decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
     assert isinstance(decls, list)
     hldsemantic.check_program(decls)
-    vars, prog = hldcompiler.compile_program(decls)
+    proc, *args = call.split()
+    args = list(map(int, args))
+    procs, prog = hldcompiler.compile_program(decls)
+    try:
+        start = procs[proc]
+    except KeyError:
+        print(f'error: proc `{proc}` is not defined', file=sys.stderr)
+        return 1
     vm = hldinterpreter.Vm(prog)
-    result = vm.run(vars)
+    result = vm.run(start, args)
     print(result)
 
 def dis(filename: str) -> None | int:
@@ -67,8 +74,9 @@ def main(argv: list[str]) -> None | int:
     options, args = parse_args(argv)
     filename = args[1]
     try:
-        if options.run:
-            return run(filename)
+        if options.run != None:
+            assert isinstance(options.run, str)
+            return run(filename, options.run)
         elif options.dis:
             return dis(filename)
         else:

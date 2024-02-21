@@ -22,6 +22,8 @@ class __Context:
     def __init__(self):
         self.vars: dict[str, int] = {}
         self.prog: list[Inst] = []
+        self.procs: dict[str, int] = {}
+        self.calls: dict[int, str] = {}
 
     def allocate_variable(self, id: str) -> int:
         i = len(self.vars)
@@ -113,8 +115,15 @@ class __Context:
 
     @compile.register
     def _(self, call: CallExpr):
-        # TODO:
-        raise NotImplementedError
+        for arg in reversed(call.args):
+            self.compile(arg)
+        callee = call.callee.value
+        try:
+            self.emit(Opcode.FRAME, len(call.args))
+            self.emit(Opcode.CALL, self.procs[callee])
+        except KeyError:
+            self.emit(Opcode.CALL)
+            self.calls[len(self.prog)-1] = callee
 
     @compile.register
     def _(self, assignment: Assignment):
@@ -156,30 +165,34 @@ class __Context:
 
     @compile.register
     def _(self, return_: Return):
-        # TODO:
-        raise NotImplementedError
+        self.compile(return_.expr)
+        self.emit(Opcode.RET)
 
     @compile.register
     def _(self, proc: Proc):
+        start = len(self.prog)
+        self.procs[proc.name.value] = start
+        self.emit(Opcode.ENTER)
         for param in proc.params:
             self.allocate_variable(param.value)
         self.compile(proc.body)
-        self.emit(Opcode.NOP)
+        self.prog[start] = Inst(Opcode.ENTER, len(self.vars))
 
-    def compile_program(self, decls: list[Declaration]) -> tuple[dict[str, dict[str, int]], list[Inst]]:
-        symtab = {}
+    def compile_program(self, decls: list[Declaration]) -> tuple[dict[str, int], list[Inst]]:
         for decl in decls:
             if isinstance(decl, Proc):
                 self.compile(decl)
-                symtab[decl.name.value] = self.vars
                 self.vars = {}
-        return symtab, self.prog
+        for i, callee in self.calls.items():
+            assert self.prog[i].op == Opcode.CALL
+            self.prog[i] = Inst(Opcode.CALL, self.procs[callee])
+        return self.procs, self.prog
 
     def backpatch(self, inst: int, to: int | None = None):
         if to == None:
             to = len(self.prog)
         self.prog[inst] = Inst(self.prog[inst].op, to)
 
-def compile_program(decls: list[Declaration]) -> tuple[dict[str, dict[str, int]], list[Inst]]:
+def compile_program(decls: list[Declaration]) -> tuple[dict[str, int], list[Inst]]:
     ctx = __Context()
     return ctx.compile_program(decls)

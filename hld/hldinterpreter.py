@@ -24,6 +24,10 @@ class Opcode(IntEnum):
     JMP_IF = auto()     # if stack[-1] != 0 goto y
     JMP_UNLESS = auto() # if stack[-1] == 0 goto y
     ASSERT = auto()     # if stack[-1] == 0 die
+    ENTER = auto()      # len(stack) += arg
+    FRAME = auto()
+    CALL = auto()       # calls[-1] = ip+1; ip = arg
+    RET = auto()        # calls[-1] = ip
 
 Inst = NamedTuple('Inst', op=Opcode, arg=int)
 
@@ -31,12 +35,12 @@ class Vm:
     def __init__(self, prog: list[Inst]):
         self.prog = prog
 
-    # NOTE: runs the first function only
-    def run(self, procs: dict[str, dict[str, int]]) -> dict[str, int]:
+    def run(self, start: int, args: list[int]) -> int:
         prog = self.prog
-        _, vars = procs.popitem()
-        stack: list[int] = [0] * len(vars)
-        ip = 0
+        stack = args[:]
+        calls: list[int] = []
+        frames: list[list[int]] = []
+        ip = start
         length = len(prog)
         def nop():
             pass
@@ -95,6 +99,29 @@ class Vm:
             if stack.pop() == 0:
                 print('assertion failed: [SHOULD ADD A MORE HELPFUL MESSAGE]')
                 ip = length
+        def enter():
+            n = inst.arg - len(stack)
+            if n > 0:
+                stack.extend(0 for _ in range(n))
+        def frame():
+            nonlocal stack
+            tmp = stack
+            frames.append(tmp[:-inst.arg])
+            stack = stack[-inst.arg:]
+        def call():
+            nonlocal ip
+            calls.append(ip)
+            ip = inst.arg - 1
+        def ret():
+            nonlocal ip
+            nonlocal stack
+            try:
+                ip = calls.pop()
+                value = stack.pop()
+                stack = frames.pop()
+                stack.append(value)
+            except IndexError:
+                ip = length
         code: list = [None] * len(Opcode)
         code[Opcode.NOP] = nop
         code[Opcode.NEG] = neg
@@ -115,8 +142,12 @@ class Vm:
         code[Opcode.JMP_IF] = jmp_if
         code[Opcode.JMP_UNLESS] = jmp_unless
         code[Opcode.ASSERT] = assert_
+        code[Opcode.ENTER] = enter
+        code[Opcode.FRAME] = frame
+        code[Opcode.CALL] = call
+        code[Opcode.RET] = ret
         while ip < length:
             inst = prog[ip]
             code[inst.op]()
             ip += 1
-        return { v: stack[i] for v, i in vars.items() }
+        return stack[-1]
