@@ -27,9 +27,10 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
                  help='display inferences step by step'
                  )
     p.add_option('--run',
+                 metavar='\'FN [ARGS...]\'',
                  action='store',
                  type='string',
-                 help='run program'
+                 help='run program with entry point FN with ARGS'
                  )
     p.add_option('--dis',
                  action='store_true',
@@ -42,8 +43,12 @@ def run(filename: str, call: str) -> None | int:
     decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
     assert isinstance(decls, list)
     hldsemantic.check_program(decls)
-    proc, *args = call.split()
-    args = list(map(int, args))
+    try:
+        proc, *args = call.split()
+        args = list(map(int, args))
+    except ValueError:
+        print('error: malformed entry point argument', file=sys.stderr)
+        exit(1)
     procs, prog = hldcompiler.compile_program(decls)
     try:
         start = procs[proc]

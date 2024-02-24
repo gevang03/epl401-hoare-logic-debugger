@@ -24,6 +24,7 @@ class __Context:
         self.params: set[str] = set()
         self.variables: dict[str, ValueType] = {}
         self.ctx_type: ContextType = ContextType.Code
+        self.callees: set[str] = set()
 
     def _ctx_is(self, ctx_type: ContextType) -> bool:
         return self.ctx_type & ctx_type == ctx_type
@@ -163,12 +164,14 @@ class __Context:
     @check_statement.register
     def _(self, assignment: Assignment):
         dest = assignment.dest.value
+        value = assignment.value
         if dest in self.params:
-            assignment.value.error(f'cannot assign to parameter {dest}')
-        if isinstance(assignment.value, CallExpr):
-            etype = self.typeof_with_ctx(assignment.value, ContextType.Assignment)
+            value.error(f'cannot assign to parameter {dest}')
+        if isinstance(value, CallExpr):
+            etype = self.typeof_with_ctx(value, ContextType.Assignment)
+            self.callees.add(value.callee.value)
         else:
-            etype = self.typeof(assignment.value)
+            etype = self.typeof(value)
         try:
             old = self.variables[dest]
             if old != etype:
@@ -193,8 +196,11 @@ class __Context:
 
     @check_statement.register
     def _(self, block: Block):
-        for statement in block.statements:
+        n = len(block.statements)
+        for i, statement in enumerate(block.statements):
             self.check_statement(statement)
+            if isinstance(statement, Return) and i != n - 1:
+                block.statements[i+1].error('statements after return are unreachable')
 
     @check_statement.register
     def _(self, assert_: Assert):
@@ -216,11 +222,23 @@ class __Context:
         if proc.post != None:
             self.typecheck_with_ctx(proc.post, ValueType.Bool, ContextType.Postcond)
         self.check_statement(proc.body)
+        self.check_return_end(proc.body)
 
     @check_declaration.register
     def _(self, fn: Fn):
         self.check_params(fn)
         self.typecheck_with_ctx(fn.expr, ValueType.Int, ContextType.Metacond)
+
+    def check_return_end(self, block: Block):
+        statements = block.statements
+        if len(statements) == 0 or not isinstance(statements[-1], (IfElse, Return)):
+            block.error('block has no return statement')
+        last = statements[-1]
+        if isinstance(last, IfElse):
+            self.check_return_end(last.then_block)
+            self.check_return_end(last.else_block)
+        else:
+            assert isinstance(last, Return)
 
     def check_params(self, decl: Fn | Proc):
         for param in decl.params:
@@ -233,6 +251,7 @@ class __Context:
 
     def check_program(self, decls: list[Declaration]) -> dict[str, dict[str, ValueType]]:
         symtab: dict[str, dict[str, ValueType]] = {}
+        call_graph: dict[str, set[str]] = {}
         for decl in decls:
             assert isinstance(decl, (Fn, Proc))
             value = decl.name.value
@@ -245,4 +264,6 @@ class __Context:
             self.check_declaration(decl)
             symtab[value] = self.variables
             self.variables = {}
+            call_graph[value] = self.callees
+            self.callees = set()
         return symtab
