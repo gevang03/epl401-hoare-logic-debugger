@@ -24,6 +24,7 @@ class __Context:
         self.prog: list[Inst] = []
         self.procs: dict[str, int] = {}
         self.calls: dict[int, str] = {}
+        self.strtab: list[str] = []
 
     def allocate_variable(self, id: str) -> int:
         i = len(self.vars)
@@ -161,7 +162,12 @@ class __Context:
     @compile.register
     def _(self, assert_: Assert):
         self.compile(assert_.expr)
-        self.emit(Opcode.ASSERT)
+        self.emit(Opcode.ASSERT, len(self.strtab))
+        lineno = pyparsing.lineno(assert_.loc, assert_.src)
+        col = pyparsing.col(assert_.loc, assert_.src)
+        line = pyparsing.line(assert_.loc, assert_.src)
+        ptr = f'{" " * (col-1)}^'
+        self.strtab.append(f'{lineno}:{col}: error: assertion failed\n{line}\n{ptr}')
 
     @compile.register
     def _(self, return_: Return):
@@ -178,7 +184,7 @@ class __Context:
         self.compile(proc.body)
         self.prog[start] = Inst(Opcode.ENTER, len(self.vars))
 
-    def compile_program(self, decls: list[Declaration]) -> tuple[dict[str, int], list[Inst]]:
+    def compile_program(self, decls: list[Declaration]) -> tuple[dict[str, int], list[Inst], list[str]]:
         for decl in decls:
             if isinstance(decl, Proc):
                 self.compile(decl)
@@ -186,13 +192,13 @@ class __Context:
         for i, callee in self.calls.items():
             assert self.prog[i].op == Opcode.CALL
             self.prog[i] = Inst(Opcode.CALL, self.procs[callee])
-        return self.procs, self.prog
+        return self.procs, self.prog, self.strtab
 
     def backpatch(self, inst: int, to: int | None = None):
         if to == None:
             to = len(self.prog)
         self.prog[inst] = Inst(self.prog[inst].op, to)
 
-def compile_program(decls: list[Declaration]) -> tuple[dict[str, int], list[Inst]]:
+def compile_program(decls: list[Declaration]) -> tuple[dict[str, int], list[Inst], list[str]]:
     ctx = __Context()
     return ctx.compile_program(decls)

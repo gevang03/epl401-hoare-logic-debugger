@@ -32,8 +32,9 @@ class Opcode(IntEnum):
 Inst = NamedTuple('Inst', op=Opcode, arg=int)
 
 class Vm:
-    def __init__(self, prog: list[Inst]):
+    def __init__(self, prog: list[Inst], strtab: list[str]):
         self.prog = prog
+        self.strtab = strtab
 
     def run(self, start: int, args: list[int]) -> int:
         prog = self.prog
@@ -97,8 +98,7 @@ class Vm:
         def assert_():
             nonlocal ip
             if stack.pop() == 0:
-                print('assertion failed: [SHOULD ADD A MORE HELPFUL MESSAGE]')
-                ip = length
+                raise RuntimeError(self.strtab[inst.arg])
         def enter():
             n = inst.arg - len(stack)
             if n > 0:

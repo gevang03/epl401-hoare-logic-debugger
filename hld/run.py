@@ -49,21 +49,25 @@ def run(filename: str, call: str) -> None | int:
     except ValueError:
         print('error: malformed entry point argument', file=sys.stderr)
         exit(1)
-    procs, prog = hldcompiler.compile_program(decls)
+    procs, prog, strtab = hldcompiler.compile_program(decls)
     try:
         start = procs[proc]
     except KeyError:
         print(f'error: proc `{proc}` is not defined', file=sys.stderr)
         return 1
-    vm = hldinterpreter.Vm(prog)
-    result = vm.run(start, args)
-    print(result)
+    vm = hldinterpreter.Vm(prog, strtab)
+    try:
+        result = vm.run(start, args)
+        print(result)
+    except RuntimeError as e:
+        print(f'{filename}:{e.args[0]}', file=sys.stderr)
+        return 1
 
 def dis(filename: str) -> None | int:
     decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
     assert isinstance(decls, list)
     hldsemantic.check_program(decls)
-    _, prog = hldcompiler.compile_program(decls)
+    _, prog, _ = hldcompiler.compile_program(decls)
     for i, (opcode, arg) in enumerate(prog):
         print(f'{i:04x} {opcode.name} {arg:04x}')
 
@@ -77,7 +81,11 @@ def debug(filename: str, correctness: hlddebug.Correctness):
 
 def main(argv: list[str]) -> None | int:
     options, args = parse_args(argv)
-    filename = args[1]
+    try:
+        filename = args[1]
+    except IndexError:
+        print('error: no file provided', file=sys.stderr)
+        return 1
     try:
         if options.run != None:
             assert isinstance(options.run, str)
@@ -94,7 +102,7 @@ def main(argv: list[str]) -> None | int:
         print(pe.explain(depth=0), file=sys.stderr)
         return 1
     except hldast.HLDError as pe:
-        print(f'{args[1]}:{pe.args[0]}', file=sys.stderr)
+        print(f'{filename}:{pe.args[0]}', file=sys.stderr)
         return 1
 
 if __name__ == '__main__':
