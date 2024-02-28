@@ -126,6 +126,7 @@ class Return(Statement):
 class Proc(Declaration):
     pre: Expr | None
     post: Expr | None
+    variant: Expr | None
     name: Identifier
     params: list[Identifier]
     body: Block

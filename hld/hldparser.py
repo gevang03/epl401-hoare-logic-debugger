@@ -117,7 +117,7 @@ statement <<= ifelse | return_ | assert_ | assignment | while_
 
 params = left_paren - pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) - right_paren
 
-proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) +\
+proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) + pp.Opt(variant, None) +\
     sup_kw['proc'] - identifier - params - block
 proc.set_parse_action(lambda s, loc, toks: Proc(s, loc, *toks))
 

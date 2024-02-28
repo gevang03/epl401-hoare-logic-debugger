@@ -23,8 +23,8 @@ proc linear(x, y) {
 '''
         ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
         self.assertIsInstance(ast, list)
-        decls = hldsemantic.check_program(ast)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls)['linear']
+        decls, call_graph = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls, call_graph)['linear']
         self.assertEqual(pre, True)
 
     def test_ifelse(self):
@@ -42,8 +42,8 @@ proc min(x, y) {
 '''
         ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
         self.assertIsInstance(ast, list)
-        decls = hldsemantic.check_program(ast)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls)['min']
+        decls, call_graph = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls, call_graph)['min']
         self.assertEqual(pre, True)
 
     def test_while_partial(self):
@@ -62,8 +62,8 @@ proc sum(n) {
 '''
         ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
         self.assertIsInstance(ast, list)
-        decls = hldsemantic.check_program(ast)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls)['sum']
+        decls, call_graph = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls, call_graph)['sum']
         self.assertEqual(pre, True)
 
     def test_while_total(self):
@@ -83,8 +83,55 @@ proc sum(n) {
 '''
         ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
         self.assertIsInstance(ast, list)
-        decls = hldsemantic.check_program(ast)
-        pre = hlddebug.get_pre(ast, hlddebug.Correctness.TOTAL, decls)['sum']
+        decls, call_graph = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.TOTAL, decls, call_graph)['sum']
+        expected = z3.Int('n') >= 0
+        s = z3.Solver()
+        s.add(expected != pre)
+        self.assertEqual(s.check(), z3.unsat)
+
+    def test_call_partial(self):
+        program = '''
+fn sum(n) := n == 0 ? 0 : n + sum(n - 1);
+
+#post result == sum(n)
+proc sum_rec(n) {
+  if n == 0 {
+    return 0;
+  } else {
+    t := sum_rec(n - 1);
+    return t + n;
+  }
+}
+'''
+        ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
+        self.assertIsInstance(ast, list)
+        decls, call_graph = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.PARTIAL, decls, call_graph)['sum_rec']
+        expected = z3.BoolVal(True)
+        s = z3.Solver()
+        s.add(expected != pre)
+        self.assertEqual(s.check(), z3.unsat)
+
+    def test_call_total(self):
+        program = '''
+fn sum(n) := n <= 0 ? 0 : n + sum(n - 1);
+
+#post result == sum(n)
+#variant n
+proc sum_rec(n) {
+  if n == 0 {
+    return 0;
+  } else {
+    t := sum_rec(n - 1);
+    return t + n;
+  }
+}
+'''
+        ast = hldparser.parser.parse_string(program, parse_all=True).as_list()
+        self.assertIsInstance(ast, list)
+        decls, call_graph = hldsemantic.check_program(ast)
+        pre = hlddebug.get_pre(ast, hlddebug.Correctness.TOTAL, decls, call_graph)['sum_rec']
         expected = z3.Int('n') >= 0
         s = z3.Solver()
         s.add(expected != pre)

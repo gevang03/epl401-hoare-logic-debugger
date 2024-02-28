@@ -1,0 +1,21 @@
+fn fct(n) := n <= 1 ? 1 : n * fct(n-1);
+
+#pre x > 0
+#post result == fct(x-1)
+#variant 2 * x
+proc delegate(x) {
+  y := calc_fct(x-1);
+  return y;
+}
+
+#pre x >= 0
+#post result == fct(x)
+#variant 2 * x + 1
+proc calc_fct(x) {
+  if x == 0 {
+    return 1;
+  } else {
+    y := delegate(x);
+    return y * x;
+  }
+}

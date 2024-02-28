@@ -28,8 +28,9 @@ class Correctness(Enum):
 class __Context:
     result = z3.Int('result')
 
-    def __init__(self, correctness: Correctness, symtab: dict[str, dict[str, ValueType]]):
+    def __init__(self, correctness: Correctness, symtab: dict[str, dict[str, ValueType]], call_graph: dict[str, set[str]]):
         self.correctness = correctness
+        self.call_graph = call_graph
         self.symtab = symtab
         self.current: Declaration
         self.variables: dict[str, ValueType] = {}
@@ -158,15 +159,40 @@ class __Context:
         res = z3.substitute(post, (dest, value))
         assert isinstance(res, z3.BoolRef)
         return res
-    
+
+    @cache
+    def call_is_recursive(self, callee: str, caller: str) -> bool:
+        call_graph = self.call_graph
+        visited = set()
+        search_set = {callee}
+        while len(search_set) > 0:
+            cur = search_set.pop()
+            if cur == caller:
+                return True
+            visited.add(cur)
+            search_set.update(c for c in call_graph[cur] if c not in visited)
+        return False
+
     def _assignment_call(self, assignment: Assignment, post: z3.BoolRef) -> z3.BoolRef:
         call = assignment.value
         assert isinstance(call, CallExpr)
         dest = self.expr_to_z3(assignment.dest)
-        proc = self.procs[call.callee.value]
+        callee = call.callee.value
+        proc = self.procs[callee]
         args = map(self.expr_to_z3, call.args)
         params = map(self.expr_to_z3, proc.params)
         subs = [*zip(params, args)]
+        assert isinstance(self.current, Proc)
+        caller = self.current.name.value
+        if self.correctness == Correctness.TOTAL and self.call_is_recursive(callee, caller):
+            s = z3.Solver()
+            cur_variant = self.expr_to_z3(self.current.variant)
+            callee_variant = self.expr_to_z3(proc.variant)
+            callee_variant = z3.substitute(callee_variant, subs)
+            assert isinstance(callee_variant, z3.ArithRef)
+            s.add(cur_variant <= callee_variant)
+            if s.check() != z3.unsat:
+                assignment.error(f'callee variant `{callee_variant}`is not strictly decreasing\ncounter-example:{s.model()}')
         if proc.pre == None:
             proc_pre = True
         else:
@@ -254,7 +280,7 @@ class __Context:
         s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
         if s.check() != z3.unsat:
             supplementary = f'\tpost: {simplify(post)}'
-            while_.body.error(f'invariant and guard negation do not imply postcondition.\n{supplementary}')
+            while_.body.error(f'invariant and guard negation do not imply postcondition.\n{supplementary}\ncounter-example: {s.model()}')
         upper = z3.FreshInt('e')
         body_post = z3.And(pre, variant < upper)
         body_pre = self.propagate(while_.body, body_post)
@@ -266,7 +292,14 @@ class __Context:
             while_.body.error(f'invariant and guard and variant do not imply while body precondition.\n{supplementary}\ncounter-example: {s.model()}')
         return pre
 
-    @singledispatchmethod
+    def declare_proc(self, decl):
+        self.procs[decl.name.value] = decl
+
+    def is_recursive(self, proc: Proc) -> bool:
+        caller = proc.name.value
+        callees = self.call_graph[caller]
+        return any(self.call_is_recursive(callee, caller) for callee in callees)
+
     def verify(self, proc: Proc) -> z3.BoolRef:
         name = proc.name.value
         self.procs[name] = proc
@@ -274,6 +307,11 @@ class __Context:
         self.variables = self.symtab[name]
         post = self.expr_to_z3(proc.post)
         assertion = self.propagate(proc.body, post)
+        if self.correctness == Correctness.TOTAL and self.is_recursive(proc):
+            variant = self.expr_to_z3(proc.variant)
+            assert isinstance(variant, z3.ArithRef)
+            assertion = z3.And(assertion, 0 <= variant)
+            assert isinstance(assertion, z3.BoolRef)
         if proc.pre != None:
             s = z3.Solver()
             pre = self.expr_to_z3(proc.pre)
@@ -284,15 +322,18 @@ class __Context:
         assert isinstance(assertion, z3.BoolRef)
         return assertion
 
-def get_pre(decls: list[Declaration], correctness: Correctness, symtab: dict[str, dict[str, ValueType]]) -> dict[str, z3.BoolRef]:
-    ctx = __Context(correctness, symtab)
+def get_pre(decls: list[Declaration], correctness: Correctness, symtab: dict[str, dict[str, ValueType]], callees: dict[str, set[str]]) -> dict[str, z3.BoolRef]:
+    ctx = __Context(correctness, symtab, callees)
     pres = {}
     for decl in decls:
         if isinstance(decl, Proc):
-            pres[decl.name.value] = ctx.verify(decl)
+            ctx.declare_proc(decl)
         else:
             assert isinstance(decl, Fn)
             ctx.add_fn(decl)
+    for decl in decls:
+        if isinstance(decl, Proc):
+            pres[decl.name.value] = ctx.verify(decl)
     return pres
 
 # NOTE: unused

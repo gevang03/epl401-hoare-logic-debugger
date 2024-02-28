@@ -14,7 +14,7 @@ class ContextType(IntFlag):
     Postcond = 0b0110
     Assignment = 0b1001
 
-def check_program(decls: list[Declaration]) -> dict[str, dict[str, ValueType]]:
+def check_program(decls: list[Declaration]) -> tuple[dict[str, dict[str, ValueType]], dict[str, set[str]]]:
     ctx = __Context()
     return ctx.check_program(decls)
 
@@ -249,7 +249,7 @@ class __Context:
         assert len(self.variables) == len(decl.params)
         self.params = set(self.variables.keys())
 
-    def check_program(self, decls: list[Declaration]) -> dict[str, dict[str, ValueType]]:
+    def check_program(self, decls: list[Declaration]) -> tuple[dict[str, dict[str, ValueType]], dict[str, set[str]]]:
         symtab: dict[str, dict[str, ValueType]] = {}
         call_graph: dict[str, set[str]] = {}
         for decl in decls:
@@ -266,4 +266,4 @@ class __Context:
             self.variables = {}
             call_graph[value] = self.callees
             self.callees = set()
-        return symtab
+        return symtab, call_graph

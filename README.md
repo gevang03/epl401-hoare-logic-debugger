@@ -30,7 +30,7 @@ procedure = [pre], [post], 'proc', identifier, paramlist, block;
 fn = 'fn', ident, paramlist, ':=', expr, ';';
 
 (* STATEMENTS *)
-statement = ifelse | assert | assignment | while;
+statement = ifelse | assert | assignment | while | return;
 ifelse = 'if', expression, block, 'else', block;
 assert = 'assert', expression, ';';
 assignment = identifier, ':=', expression, ';';
@@ -44,6 +44,7 @@ expression = primary | ternary_expr;
 (* Using regex: /[a-zA-Z_][a-zA-Z0-9_]*/ *)
 (* Matches from keywords are excluded *)
 identifier = (alpha | '_'), {alphanum | '_'};
+call = identifier, '(', [expression, {',', expression}], ')';
 literal = bool | int;
 bool = 'true' | 'false';
 int = digits, {digits};
@@ -70,7 +71,7 @@ rel_expr = add_expr, rel_op, add_expr;
 add_expr = mul_expr, add_op, mul_expr;
 mul_expr = unary_expr, mul_op, unary_expr;
 unary_expr = un_op, primary;
-primary = '(' expression ')' | literal | identifier;
+primary = '(' expression ')' | literal | identifier | call;
 
 rel_op = '<' | '<=' | '==' | '!=' | '>=' | '>';
 add_op = '+' | '-';

@@ -70,8 +70,8 @@ def dis(filename: str) -> None | int:
 def debug(filename: str, correctness: hlddebug.Correctness):
     decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
     assert isinstance(decls, list)
-    symtab = hldsemantic.check_program(decls)
-    pres = hlddebug.get_pre(decls, correctness, symtab)
+    symtab, call_graph = hldsemantic.check_program(decls)
+    pres = hlddebug.get_pre(decls, correctness, symtab, call_graph)
     for sym, pre in pres.items():
         print(f'proc {sym}(...) {{...}} requires `{pre}`')
 
