@@ -75,7 +75,7 @@ primary = '(' expression ')' | literal | identifier | call;
 
 rel_op = '<' | '<=' | '==' | '!=' | '>=' | '>';
 add_op = '+' | '-';
-mul_op = '*';
+mul_op = '*' | '/' | '%';
 un_op = '+' | '-' | '!';
 ```
 

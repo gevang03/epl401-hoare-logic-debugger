@@ -9,6 +9,8 @@ class __Context:
         '*': Opcode.MUL,
         '+': Opcode.ADD,
         '-': Opcode.SUB,
+        '/': Opcode.DIV,
+        '%': Opcode.MOD,
     }
     __bin_rel_opcodes = {
         '<=': Opcode.LE,

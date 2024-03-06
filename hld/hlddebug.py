@@ -7,7 +7,11 @@ from functools import cache, singledispatchmethod
 from hldast import *
 from hldsemantic import ValueType
 
-_infix_arith_ops = { '*': operator.mul, '+': operator.add, '-': operator.sub }
+_infix_arith_ops = {
+    '*': operator.mul, '+': operator.add, '-': operator.sub,
+    '/': operator.truediv, '%': operator.mod
+}
+
 _infix_logical_ops = { '&&': z3.And, '||': z3.Or }
 _infix_rel_ops = {
     '<=': operator.le, '<': operator.lt,
@@ -150,6 +154,8 @@ class __Context:
     def _(self, assignment: Assignment, post: z3.BoolRef) -> z3.BoolRef:
         if isinstance(assignment.value, CallExpr):
             return self._assignment_call(assignment, post)
+        elif isinstance(assignment.value, InfixArithmeticExpr) and assignment.value.op in { '/', '%'}:
+            return self._assignment_divmod(assignment, post)
         else:
             return self._assignment_value(assignment, post)
 
@@ -157,6 +163,16 @@ class __Context:
         dest = self.expr_to_z3(assignment.dest)
         value = self.expr_to_z3(assignment.value)
         res = z3.substitute(post, (dest, value))
+        assert isinstance(res, z3.BoolRef)
+        return res
+
+    def _assignment_divmod(self, assignment: Assignment, post: z3.BoolRef) -> z3.BoolRef:
+        assert isinstance(assignment.value, InfixArithmeticExpr) and assignment.value.op in { '/', '%' }
+        dest = self.expr_to_z3(assignment.dest)
+        value = self.expr_to_z3(assignment.value)
+        res = z3.substitute(post, (dest, value))
+        divisor = self.expr_to_z3(assignment.value.right)
+        res = z3.And(res, divisor != 0)
         assert isinstance(res, z3.BoolRef)
         return res
 

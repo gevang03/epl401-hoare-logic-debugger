@@ -5,7 +5,7 @@ from hldast import *
 
 pp.ParserElement.enable_packrat()
 
-_infix_arith_ops = { '+', '-', '*' }
+_infix_arith_ops = { '+', '-', '*', '/', '%' }
 _infix_log_ops = { '&&', '||' }
 _infix_rel_ops = { '<', '<=', '==', '!=', '>', '>=' }
 
@@ -70,7 +70,7 @@ left_paren = pp.Suppress('(')
 right_paren = pp.Suppress(')')
 
 unary_op = pp.one_of('+ - !')
-mul_op = pp.Literal('*')
+mul_op = pp.one_of('* / %')
 add_op = pp.one_of('+ -')
 cmp_op = pp.one_of('<= < >= > == !=')
 and_op = pp.Literal('&&')

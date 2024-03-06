@@ -11,6 +11,8 @@ class Opcode(IntEnum):
     ADD = auto()        # stack[-1] <- stack[-1] + value
     SUB = auto()        # stack[-1] <- stack[-1] - value
     MUL = auto()        # stack[-1] <- stack[-1] * value
+    DIV = auto()        # stack[-1] <- stack[-1] / value
+    MOD = auto()        # stack[-1] <- stack[-1] % value
     LT = auto()         # stack[-1] <- stack[-1] < value
     LE = auto()         # stack[-1] <- stack[-1] <= value
     EQ = auto()         # stack[-1] <- stack[-1] == value
@@ -58,6 +60,12 @@ class Vm:
         def mul():
             value = stack.pop()
             stack[-1] = stack[-1] * value
+        def div():
+            value = stack.pop()
+            stack[-1] = stack[-1] // value
+        def mod():
+            value = stack.pop()
+            stack[-1] = stack[-1] % value
         def lt():
             value = stack.pop()
             stack[-1] = int(stack[-1] < value)
@@ -129,6 +137,8 @@ class Vm:
         code[Opcode.ADD] = add
         code[Opcode.SUB] = sub
         code[Opcode.MUL] = mul
+        code[Opcode.DIV] = div
+        code[Opcode.MOD] = mod
         code[Opcode.LT] = lt
         code[Opcode.LE] = le
         code[Opcode.EQ] = eq

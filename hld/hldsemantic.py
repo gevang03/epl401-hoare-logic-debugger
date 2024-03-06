@@ -79,8 +79,14 @@ class __Context:
 
     @typeof.register
     def _(self, expr: InfixArithmeticExpr) -> ValueType:
+        if expr.op in { '/', '%' } and not self._ctx_is(ContextType.Metacond) and not self._ctx_is(ContextType.Assignment):
+            expr.error(f'`{expr.op}` can only occur directly in an assignment or in a metacondition')
+        prev = self.ctx_type
+        if self._ctx_is(ContextType.Assignment):
+            self.ctx_type = ContextType.Code
         self.typecheck(expr.left, ValueType.Int)
         self.typecheck(expr.right, ValueType.Int)
+        self.ctx_type = prev
         return ValueType.Int
 
     @typeof.register
@@ -170,6 +176,8 @@ class __Context:
         if isinstance(value, CallExpr):
             etype = self.typeof_with_ctx(value, ContextType.Assignment)
             self.callees.add(value.callee.value)
+        elif isinstance(value, InfixArithmeticExpr) and value.op in { '/', '%'}:
+            etype = self.typeof_with_ctx(value, ContextType.Assignment)
         else:
             etype = self.typeof(value)
         try:
