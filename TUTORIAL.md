@@ -1,11 +1,13 @@
 # Hoare Logic Debugger (HLD) Tutorial
 
 ## Introduction
-The purpose of this tool is to assist in finding bugs in programs, thus making programming easier. The tool uses formal methods to detect bugs and verify correctness and termination.
+The purpose of this tool is to assist in finding bugs in programs, thus making programming easier.
+The tool uses formal methods to detect bugs and verify correctness and termination.
 
 ## Build
 
-On linux, run the following commands. Make sure that `python3 --version` is >= 3.10
+You can build this tool at the b103 lab.
+On linux, run the following commands. Make sure that `python3 --version` is >= 3.9.18
 
 ```bash
 $ git clone --depth=1 https://github.com/gevang03/epl401-hoare-logic-debugger.git
@@ -29,7 +31,8 @@ correctness (termination)
 > Run `./hld/run.py -h` for help.
 
 ## Language
-The HLD language that the tool supports is procedural and should be familiar to any c/java programmmer. There also exist some constructs to express program specifications.
+The HLD language that the tool supports is procedural and should be familiar to any c/java programmmer.
+There also exist some constructs to express program specifications.
 
 ### Types and Basic Expressions
 Only two value types exist in HLD:
@@ -108,7 +111,8 @@ Parameters cannot be reassigned (they are immutable).
 
 * Procedures may be preceeded by a precondition (a condition which should hold before the execution of the procedure).
 
-* Procedures may be preceeded by a postcondition (a condition which should hold after the execution of the procedure). The result keyword is used to represent the value returned by the procedure
+* Procedures may be preceeded by a postcondition (a condition which should hold after the execution of the procedure).
+The result keyword is used to represent the value returned by the procedure
 
 Example:
 ```rs
@@ -137,9 +141,11 @@ proc inc2(x) {
 ```
 
 ### Variants and Invariants
-Invariants are conditions which should hold before during and after the execution of an iteration of a while loop/recursive call. They are used to prove the correctness of these iterative structures.
+Invariants are conditions which should hold before during and after the execution of an iteration of
+a while loop/recursive call. They are used to prove the correctness of these iterative structures.
 
-Variants are integer expressions which each iteration must be decreased and are always bound by zero. They are used to prove termination of while loops/recursive calls.
+Variants are integer expressions which each iteration must be decreased and are always bound by zero.
+They are used to prove termination of while loops/recursive calls.
 
 Example:
 ```rs
@@ -159,7 +165,8 @@ proc sum(n) {
 ```
 
 ### Functions
-Functions are used to define other specifications, that may require recursion to do so, for example. Their body consists of a single expression. Functions cannot be called inside of a procedure.
+Functions are used to define other specifications, that may require recursion to do so, for example.
+Their body consists of a single expression. Functions cannot be called inside of a procedure.
 
 ```rs
 // 'equivalent' to:
@@ -189,5 +196,6 @@ proc calc_fct(x) {
 ## Some tips on using the HLD tool
 * Attempt to verify partial correctness before total correctness, to avoid cluttered results that may be unhelpful.
 * Assertions might help in pinpointing what exactly is wrong.
-* Executing the program can give empirical results (wrong values, non-termination) that may indicate if there is something wrong with your code or with any of the specified metaconditions (variants, invariants, etc.).
+* Executing the program can give empirical results (wrong values, non-termination) that may indicate
+if there is something wrong with your code or with any of the specified metaconditions (variants, invariants, etc.).
 * The tool may provide some counter examples that can be used to verify what is wrong.

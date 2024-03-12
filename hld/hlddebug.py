@@ -206,6 +206,10 @@ class __Context:
         caller = self.current.name.value
         if self.correctness == Correctness.TOTAL and self.call_is_recursive(callee, caller):
             s = z3.Solver()
+            if self.current.variant == None:
+                self.current.error('missing variant expression')
+            if proc.variant == None:
+                self.current.error('missing variant expression')
             cur_variant = self.expr_to_z3(self.current.variant)
             callee_variant = self.expr_to_z3(proc.variant)
             callee_variant = z3.substitute(callee_variant, subs)
@@ -218,6 +222,8 @@ class __Context:
         else:
             proc_pre = self.expr_to_z3(proc.pre)
             proc_pre = z3.substitute(proc_pre, *subs)
+        if proc.post == None:
+            proc.error('missing postcondition')
         proc_post = self.expr_to_z3(proc.post)
         proc_post = z3.substitute(proc_post, *subs, (self.result, dest))
         res = z3.And(proc_pre, z3.ForAll(dest, z3.Implies(proc_post, post)))
@@ -273,6 +279,8 @@ class __Context:
         return res
 
     def _partial_while(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
+        if while_.invariant == None:
+            while_.error('missing invariant condition')
         invariant = self.expr_to_z3(while_.invariant)
         assert isinstance(invariant, z3.BoolRef)
         cond = self.expr_to_z3(while_.cond)
@@ -292,6 +300,10 @@ class __Context:
         return invariant
 
     def _total_while(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
+        if while_.invariant == None:
+            while_.error('missing invariant condition')
+        if while_.variant == None:
+            while_.error('missing variant expression')
         invariant = self.expr_to_z3(while_.invariant)
         variant = self.expr_to_z3(while_.variant)
         assert isinstance(variant, z3.ArithRef)
@@ -329,9 +341,13 @@ class __Context:
         self.procs[name] = proc
         self.current = proc
         self.variables = self.symtab[name]
+        if proc.post == None:
+            proc.error('missing postcondition')
         post = self.expr_to_z3(proc.post)
         assertion = self.propagate(proc.body, post)
         if self.correctness == Correctness.TOTAL and self.is_recursive(proc):
+            if proc.variant != None:
+                proc.error('missing variant expression')
             variant = self.expr_to_z3(proc.variant)
             assert isinstance(variant, z3.ArithRef)
             assertion = z3.And(assertion, 0 <= variant)
