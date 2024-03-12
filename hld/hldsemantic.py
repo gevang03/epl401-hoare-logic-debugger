@@ -248,7 +248,8 @@ class __Context:
         else:
             assert isinstance(last, Return)
 
-    def check_params(self, decl: Fn | Proc):
+    def check_params(self, decl: Declaration):
+        assert isinstance(decl, (Fn, Proc))
         for param in decl.params:
             value = param.value
             if value in self.variables:

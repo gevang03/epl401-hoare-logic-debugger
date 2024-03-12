@@ -4,6 +4,8 @@ import operator
 import z3
 from enum import Enum
 from functools import cache, singledispatchmethod
+from typing import Union
+
 from hldast import *
 from hldsemantic import ValueType
 
@@ -19,7 +21,9 @@ _infix_rel_ops = {
     '==': operator.eq, '!=': operator.ne
 }
 
-def simplify(expr: z3.BoolRef | z3.ArithRef) -> z3.BoolRef | z3.ArithRef:
+_ValRef = Union[z3.BoolRef, z3.ArithRef]
+
+def simplify(expr: _ValRef) -> _ValRef:
     ret = z3.Tactic('ctx-solver-simplify').apply(expr).as_expr()
     ret = z3.simplify(ret)
     assert isinstance(ret, (z3.BoolRef, z3.ArithRef))
@@ -54,7 +58,7 @@ class __Context:
 
     @singledispatchmethod
     @cache
-    def expr_to_z3(self, _: Expr) -> z3.BoolRef | z3.ArithRef:
+    def expr_to_z3(self, _: Expr) -> _ValRef:
         raise NotImplementedError
 
     @expr_to_z3.register
@@ -66,7 +70,7 @@ class __Context:
         return z3.IntVal(expr.value)
 
     @expr_to_z3.register
-    def _(self, expr: Identifier) -> z3.BoolRef | z3.ArithRef:
+    def _(self, expr: Identifier) -> _ValRef:
         value = expr.value
         type = self.variables[value]
         if type == ValueType.Int:
@@ -125,7 +129,7 @@ class __Context:
         return res
 
     @expr_to_z3.register
-    def _(self, expr: TernaryExpr) -> z3.BoolRef | z3.ArithRef:
+    def _(self, expr: TernaryExpr) -> _ValRef:
         cond = self.expr_to_z3(expr.cond)
         then_expr = self.expr_to_z3(expr.then_expr)
         else_expr = self.expr_to_z3(expr.else_expr)

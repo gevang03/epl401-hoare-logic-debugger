@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from functools import singledispatchmethod
+from typing import Optional
 from hldast import *
 from hldinterpreter import Opcode, Inst
 
@@ -196,7 +197,7 @@ class __Context:
             self.prog[i] = Inst(Opcode.CALL, self.procs[callee])
         return self.procs, self.prog, self.strtab
 
-    def backpatch(self, inst: int, to: int | None = None):
+    def backpatch(self, inst: int, to: Optional[int] = None):
         if to == None:
             to = len(self.prog)
         self.prog[inst] = Inst(self.prog[inst].op, to)

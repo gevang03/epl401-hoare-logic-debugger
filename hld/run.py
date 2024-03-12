@@ -11,6 +11,8 @@ import optparse
 import pyparsing
 import sys
 
+from typing import Optional
+
 def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
     usage = 'usage: %prog [options] filename'
     p = optparse.OptionParser(usage=usage)
@@ -39,7 +41,7 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
                  )
     return p.parse_args(argv)
 
-def run(filename: str, call: str) -> None | int:
+def run(filename: str, call: str) -> Optional[int]:
     decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
     assert isinstance(decls, list)
     hldsemantic.check_program(decls)
@@ -63,7 +65,7 @@ def run(filename: str, call: str) -> None | int:
         print(f'{filename}:{e.args[0]}', file=sys.stderr)
         return 1
 
-def dis(filename: str) -> None | int:
+def dis(filename: str) -> Optional[int]:
     decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
     assert isinstance(decls, list)
     hldsemantic.check_program(decls)
@@ -79,7 +81,7 @@ def debug(filename: str, correctness: hlddebug.Correctness):
     for sym, pre in pres.items():
         print(f'proc {sym}(...) {{...}} requires `{pre}`')
 
-def main(argv: list[str]) -> None | int:
+def main(argv: list[str]) -> Optional[int]:
     options, args = parse_args(argv)
     try:
         filename = args[1]

@@ -6,7 +6,7 @@ import pyparsing
 from abc import ABC
 from dataclasses import dataclass
 from operator import attrgetter
-from typing import NoReturn
+from typing import Optional, NoReturn
 
 @dataclass(frozen=True, repr=False)
 class ASTNode(ABC):
@@ -109,8 +109,8 @@ class IfElse(Statement):
 
 @dataclass(frozen=True, repr=False)
 class While(Statement):
-    invariant: Expr | None
-    variant: Expr | None
+    invariant: Optional[Expr]
+    variant: Optional[Expr]
     cond: Expr
     body: Block
 
@@ -124,9 +124,9 @@ class Return(Statement):
 
 @dataclass(frozen=True, repr=False)
 class Proc(Declaration):
-    pre: Expr | None
-    post: Expr | None
-    variant: Expr | None
+    pre: Optional[Expr]
+    post: Optional[Expr]
+    variant: Optional[Expr]
     name: Identifier
     params: list[Identifier]
     body: Block
