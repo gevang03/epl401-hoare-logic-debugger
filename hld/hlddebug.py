@@ -234,6 +234,10 @@ class __Context:
         assertion = post
         for statement in reversed(block.statements):
             assertion = self.propagate(statement, assertion)
+            s = z3.Solver()
+            s.add(assertion)
+            if s.check() == z3.unsat:
+                statement.error(f'precondition `{assertion}` found is unsatisfiable')
         return assertion
 
     @propagate.register

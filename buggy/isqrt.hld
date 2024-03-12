@@ -1,0 +1,20 @@
+// the integer square root of a non-negative integer x
+// is the greatest integer less than or equal to the square root of x.
+
+#pre x >= 0
+#post result * result <= x && x < (result + 1) * (result + 1)
+proc isqrt(x) {
+    l := 0;
+    r := x + 1;
+    #invariant l * l <= x && x < r * r
+    #variant r - l
+    while l != r - 1 {
+        m := (l + r) / 2;
+        if m * m <= x {
+            r := m;
+        } else {
+            l := m;
+        }
+    }
+    return l;
+}

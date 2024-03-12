@@ -1,0 +1,16 @@
+// int_log2(n) == floor(log2(n))
+fn int_log2(n) := n <= 1 ? 0 : 1 + int_log2(n / 2);
+
+#pre n > 0
+#post result == int_log2(n)
+proc calc_int_log2(n) {
+  y := 0;
+  x := n;
+  #invariant y + int_log2(x) == int_log2(n)
+  #variant x
+  while x >= 1 {
+    y := y + 1;
+    x := x / 2;
+  }
+  return y;
+}

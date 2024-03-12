@@ -120,9 +120,12 @@ params = left_paren - pp.Opt(pp.Group(pp.DelimitedList(identifier), True), []) -
 proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) + pp.Opt(variant, None) +\
     sup_kw['proc'] - identifier - params - block
 proc.set_parse_action(lambda s, loc, toks: Proc(s, loc, *toks))
+proc.set_name('proc')
 
 fn = sup_kw['fn'] - identifier - params - assign - expr - semi
 fn.set_parse_action(lambda s, loc, toks: Fn(s, loc, *toks))
+fn.set_name('fn')
+
 decls = proc | fn
 program = decls[1, ...]
 parser = program
