@@ -151,13 +151,13 @@ They are used to prove termination of while loops/recursive calls.
 Example:
 ```rs
 #pre n >= 0
-#post result = n * (n - 1) / 2
+#post result == n * (n - 1) / 2
 proc sum(n) {
     i := 0;
     total := 0;
     #invariant total == i * (i - 1) / 2
     #variant n - i
-    while i != y {
+    while i != n {
         total := total + i;
         i := i + 1;
     }
