@@ -11,6 +11,7 @@ On linux, run the following commands. Make sure that `python3 --version` is >= 3
 
 ```bash
 $ git clone --depth=1 https://github.com/gevang03/epl401-hoare-logic-debugger.git
+$ cd epl401-hoare-logic-debugger
 $ python3 -m venv .venv
 $ . .venv/bin/activate
 $ pip install --require-virtualenv -r requirements.txt

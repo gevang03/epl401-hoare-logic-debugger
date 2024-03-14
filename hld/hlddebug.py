@@ -346,7 +346,7 @@ class __Context:
         post = self.expr_to_z3(proc.post)
         assertion = self.propagate(proc.body, post)
         if self.correctness == Correctness.TOTAL and self.is_recursive(proc):
-            if proc.variant != None:
+            if proc.variant == None:
                 proc.error('missing variant expression')
             variant = self.expr_to_z3(proc.variant)
             assert isinstance(variant, z3.ArithRef)
