@@ -20,6 +20,7 @@ $ python3 -m unittest discover -s hld -v
 ## Syntax
 Using [EBNF Notation](https://www.iso.org/standard/26153.html).
 Whitespace is not significant and ommited for brevity.
+Single line comments are prefixed by '//', also ommited below.
 
 ```ebnf
 program = declaration, {declaration};
@@ -71,7 +72,7 @@ rel_expr = add_expr, rel_op, add_expr;
 add_expr = mul_expr, add_op, mul_expr;
 mul_expr = unary_expr, mul_op, unary_expr;
 unary_expr = un_op, primary;
-primary = '(' expression ')' | literal | identifier | call;
+primary = '(' expression ')' | literal | identifier | call | 'result';
 
 rel_op = '<' | '<=' | '==' | '!=' | '>=' | '>';
 add_op = '+' | '-';

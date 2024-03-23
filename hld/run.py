@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import hldai
 import hldast
 import hldcompiler
 import hlddebug
@@ -7,6 +8,7 @@ import hldinterpreter
 import hldparser
 import hldsemantic
 
+import openai
 import optparse
 import pyparsing
 import sys
@@ -38,6 +40,11 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
                  action='store_true',
                  default=False,
                  help='disassemble vm'
+                 )
+    p.add_option('--ai',
+                 action='store_true',
+                 default=False,
+                 help='ask ai assistant in case of an error'
                  )
     return p.parse_args(argv)
 
@@ -81,6 +88,19 @@ def debug(filename: str, correctness: hlddebug.Correctness):
     for sym, pre in pres.items():
         print(f'proc {sym}(...) {{...}} requires `{pre}`')
 
+def ai(filename: str, correctness: hlddebug.Correctness):
+    decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
+    assert isinstance(decls, list)
+    symtab, call_graph = hldsemantic.check_program(decls)
+    try:
+        pres = hlddebug.get_pre(decls, correctness, symtab, call_graph)
+        for sym, pre in pres.items():
+            print(f'proc {sym}(...) {{...}} requires `{pre}`')
+    except hldast.HLDError as e:
+        response = hldai.ask_assistant(filename, e.args[0])
+        print(response, file=sys.stderr)
+        return 1
+
 def main(argv: list[str]) -> Optional[int]:
     options, args = parse_args(argv)
     try:
@@ -94,6 +114,9 @@ def main(argv: list[str]) -> Optional[int]:
             return run(filename, options.run)
         elif options.dis:
             return dis(filename)
+        elif options.ai:
+            correctness = hlddebug.Correctness(options.correctness)
+            return ai(filename, correctness)
         else:
             correctness = hlddebug.Correctness(options.correctness)
             return debug(filename, correctness)
@@ -106,6 +129,13 @@ def main(argv: list[str]) -> Optional[int]:
     except hldast.HLDError as pe:
         print(f'{filename}:{pe.args[0]}', file=sys.stderr)
         return 1
+    except openai.APIConnectionError as e:
+        print('The openai server could not be reached', file=sys.stderr)
+        print(e.__cause__)  # an underlying Exception, likely raised within httpx.
+    except openai.RateLimitError as e:
+        print('A 429 status code was received; rate limit error.', file=sys.stderr)
+    except openai.APIStatusError as e:
+        print(f'openai: {e.status_code}: {e.response}')
 
 if __name__ == '__main__':
     status = main(sys.argv)
