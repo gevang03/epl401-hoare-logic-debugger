@@ -46,6 +46,11 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
                  default=False,
                  help='ask ai assistant in case of an error'
                  )
+    p.add_option('--interactive',
+                action='store_true',
+                default=False,
+                help='interactively apply changes made by the assistant'
+    )
     return p.parse_args(argv)
 
 def run(filename: str, call: str) -> Optional[int]:
@@ -88,18 +93,36 @@ def debug(filename: str, correctness: hlddebug.Correctness):
     for sym, pre in pres.items():
         print(f'proc {sym}(...) {{...}} requires `{pre}`')
 
-def ai(filename: str, correctness: hlddebug.Correctness):
-    decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
-    assert isinstance(decls, list)
-    symtab, call_graph = hldsemantic.check_program(decls)
-    try:
-        pres = hlddebug.get_pre(decls, correctness, symtab, call_graph)
-        for sym, pre in pres.items():
-            print(f'proc {sym}(...) {{...}} requires `{pre}`')
-    except hldast.HLDError as e:
-        response = hldai.ask_assistant(filename, e.args[0])
-        print(response, file=sys.stderr)
-        return 1
+def ai(filename: str, correctness: hlddebug.Correctness, interactive: bool) -> Optional[int]:
+    while True:
+        decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
+        assert isinstance(decls, list)
+        symtab, call_graph = hldsemantic.check_program(decls)
+        try:
+            pres = hlddebug.get_pre(decls, correctness, symtab, call_graph)
+            for sym, pre in pres.items():
+                print(f'proc {sym}(...) {{...}} requires `{pre}`')
+                return 0
+        except hldast.HLDError as e:
+            response = hldai.ask_assistant(filename, e.args[0])
+            print(response, file=sys.stderr)
+            if not interactive:
+                return 1
+            try:
+                start = response.index('```')
+                end = response.index('```', start + 4)
+                new_program = response[start+4:end-1]
+                yn = input('Apply proposed changes and retry? (Y/n) ')
+                while True:
+                    if yn in ['y', 'Y']:
+                        open(filename, 'w').write(new_program)
+                        break
+                    elif yn in ['n', 'N']:
+                        return 1
+                    else:
+                        yn = input('invalid input (Y/n) ')
+            except IndexError:
+                return 1
 
 def main(argv: list[str]) -> Optional[int]:
     options, args = parse_args(argv)
@@ -116,7 +139,7 @@ def main(argv: list[str]) -> Optional[int]:
             return dis(filename)
         elif options.ai:
             correctness = hlddebug.Correctness(options.correctness)
-            return ai(filename, correctness)
+            return ai(filename, correctness, options.interactive)
         else:
             correctness = hlddebug.Correctness(options.correctness)
             return debug(filename, correctness)
