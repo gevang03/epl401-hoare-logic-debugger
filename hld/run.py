@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 
-import hldai
 import hldast
 import hldcompiler
-import hlddebug
-import hldinterpreter
 import hldparser
 import hldsemantic
 
-import openai
 import optparse
 import pyparsing
 import sys
@@ -54,6 +50,7 @@ def parse_args(argv: list[str]) -> tuple[optparse.Values, list[str]]:
     return p.parse_args(argv)
 
 def run(filename: str, call: str) -> Optional[int]:
+    import hldinterpreter
     decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
     assert isinstance(decls, list)
     hldsemantic.check_program(decls)
@@ -85,7 +82,9 @@ def dis(filename: str) -> Optional[int]:
     for i, (opcode, arg) in enumerate(prog):
         print(f'{i:04x} {opcode.name} {arg:04x}')
 
-def debug(filename: str, correctness: hlddebug.Correctness):
+def debug(filename: str, correctness_str: str):
+    import hlddebug
+    correctness = hlddebug.Correctness(correctness_str)
     decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
     assert isinstance(decls, list)
     symtab, call_graph = hldsemantic.check_program(decls)
@@ -93,7 +92,42 @@ def debug(filename: str, correctness: hlddebug.Correctness):
     for sym, pre in pres.items():
         print(f'proc {sym}(...) {{...}} requires `{pre}`')
 
-def ai(filename: str, correctness: hlddebug.Correctness, interactive: bool) -> Optional[int]:
+
+def ai(filename: str, correctness_str: str, interactive: bool) -> Optional[int]:
+    import hldai
+    import hlddebug
+    import openai
+
+    def ask(filename: str, err: str) -> Optional[str]:
+        try:
+            return hldai.ask_assistant(filename, err)
+        except openai.APIConnectionError as e:
+            print('The openai server could not be reached', file=sys.stderr)
+            print(e.__cause__, file=sys.stderr)  # an underlying Exception, likely raised within httpx.
+        except openai.RateLimitError as e:
+            print('A 429 status code was received; rate limit error.', file=sys.stderr)
+        except openai.APIStatusError as e:
+            print(f'openai: {e.status_code}: {e.response}', file=sys.stderr)
+
+    def update_program(response: str, filename: str) -> bool:
+        try:
+            start = response.index('```')
+            end = response.index('```', start + 4)
+        except IndexError:
+            return False
+        new_program = response[start+4:end-1]
+        yn = input('Apply proposed changes and retry? (Y/n) ')
+        while True:
+            if yn in ['y', 'Y']:
+                with open(filename, 'w') as f:
+                    f.write(new_program)
+                return True
+            elif yn in ['n', 'N']:
+                return False
+            else:
+                yn = input('invalid input (Y/n) ')
+
+    correctness = hlddebug.Correctness(correctness_str)
     while True:
         decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
         assert isinstance(decls, list)
@@ -102,26 +136,15 @@ def ai(filename: str, correctness: hlddebug.Correctness, interactive: bool) -> O
             pres = hlddebug.get_pre(decls, correctness, symtab, call_graph)
             for sym, pre in pres.items():
                 print(f'proc {sym}(...) {{...}} requires `{pre}`')
-                return 0
+            return 0
         except hldast.HLDError as e:
-            response = hldai.ask_assistant(filename, e.args[0])
+            response = ask(filename, e.args[0])
+            if response is None:
+                return 1
             print(response, file=sys.stderr)
             if not interactive:
                 return 1
-            try:
-                start = response.index('```')
-                end = response.index('```', start + 4)
-                new_program = response[start+4:end-1]
-                yn = input('Apply proposed changes and retry? (Y/n) ')
-                while True:
-                    if yn in ['y', 'Y']:
-                        open(filename, 'w').write(new_program)
-                        break
-                    elif yn in ['n', 'N']:
-                        return 1
-                    else:
-                        yn = input('invalid input (Y/n) ')
-            except IndexError:
+            if not update_program(response, filename):
                 return 1
 
 def main(argv: list[str]) -> Optional[int]:
@@ -138,11 +161,9 @@ def main(argv: list[str]) -> Optional[int]:
         elif options.dis:
             return dis(filename)
         elif options.ai:
-            correctness = hlddebug.Correctness(options.correctness)
-            return ai(filename, correctness, options.interactive)
+            return ai(filename, options.correctness, options.interactive)
         else:
-            correctness = hlddebug.Correctness(options.correctness)
-            return debug(filename, correctness)
+            return debug(filename, options.correctness)
     except OSError as os_err:
         print(f'error: {os_err.filename}: {os_err.strerror}', file=sys.stderr)
         return 1
@@ -152,13 +173,6 @@ def main(argv: list[str]) -> Optional[int]:
     except hldast.HLDError as pe:
         print(f'{filename}:{pe.args[0]}', file=sys.stderr)
         return 1
-    except openai.APIConnectionError as e:
-        print('The openai server could not be reached', file=sys.stderr)
-        print(e.__cause__)  # an underlying Exception, likely raised within httpx.
-    except openai.RateLimitError as e:
-        print('A 429 status code was received; rate limit error.', file=sys.stderr)
-    except openai.APIStatusError as e:
-        print(f'openai: {e.status_code}: {e.response}')
 
 if __name__ == '__main__':
     status = main(sys.argv)
