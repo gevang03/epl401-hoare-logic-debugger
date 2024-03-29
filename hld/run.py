@@ -94,11 +94,11 @@ def debug(filename: str, correctness_str: str):
 
 
 def ai(filename: str, correctness_str: str, interactive: bool) -> Optional[int]:
-    import hldai
     import hlddebug
-    import openai
 
     def ask(filename: str, err: str) -> Optional[str]:
+        import hldai
+        import openai
         try:
             return hldai.ask_assistant(filename, err)
         except openai.APIConnectionError as e:
@@ -141,10 +141,8 @@ def ai(filename: str, correctness_str: str, interactive: bool) -> Optional[int]:
             response = ask(filename, e.args[0])
             if response is None:
                 return 1
-            print(response, file=sys.stderr)
-            if not interactive:
-                return 1
-            if not update_program(response, filename):
+            print(response)
+            if not interactive or not update_program(response, filename):
                 return 1
 
 def main(argv: list[str]) -> Optional[int]:
