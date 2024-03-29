@@ -6,7 +6,7 @@ import pyparsing
 from abc import ABC
 from dataclasses import dataclass
 from operator import attrgetter
-from typing import Optional, NoReturn
+from typing import Optional, NoReturn, Union
 
 @dataclass(frozen=True, repr=False)
 class ASTNode(ABC):
@@ -105,7 +105,7 @@ class Block(Statement):
 class IfElse(Statement):
     cond: Expr
     then_block: Block
-    else_block: Block
+    else_block: Union[Block, 'IfElse']
 
 @dataclass(frozen=True, repr=False)
 class While(Statement):

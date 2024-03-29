@@ -237,7 +237,12 @@ class __Context:
         self.check_params(fn)
         self.typecheck_with_ctx(fn.expr, ValueType.Int, ContextType.Metacond)
 
-    def check_return_end(self, block: Block):
+    @singledispatchmethod
+    def check_return_end(self, statement: Union[IfElse, Block]):
+        raise NotImplementedError
+
+    @check_return_end.register
+    def _(self, block: Block):
         statements = block.statements
         if len(statements) == 0 or not isinstance(statements[-1], (IfElse, Return)):
             block.error('block has no return statement')
@@ -247,6 +252,11 @@ class __Context:
             self.check_return_end(last.else_block)
         else:
             assert isinstance(last, Return)
+
+    @check_return_end.register
+    def _(self, ifelse: IfElse):
+        self.check_return_end(ifelse.then_block)
+        self.check_return_end(ifelse.else_block)
 
     def check_params(self, decl: Declaration):
         assert isinstance(decl, (Fn, Proc))
