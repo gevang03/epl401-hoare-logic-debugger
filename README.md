@@ -25,7 +25,7 @@ Single line comments are prefixed by '//', also ommited below.
 ```ebnf
 program = declaration, {declaration};
 
-declaration = procedure | fn
+declaration = procedure | fn;
 
 procedure = [pre], [post], 'proc', identifier, paramlist, block;
 fn = 'fn', ident, paramlist, ':=', expr, ';';

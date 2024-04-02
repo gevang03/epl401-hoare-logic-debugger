@@ -56,6 +56,12 @@ class __Context:
         expr = self.expr_to_z3(fn.expr)
         z3.RecAddDefinition(f, params, expr)
 
+    def _get_model(self, solver: z3.Solver) -> str:
+        model = solver.model()
+        assigns = (f'{sym} = {model[sym]}'
+                   for sym in model if sym.name() in self.variables) # type: ignore
+        return f'[{", ".join(assigns)}]'
+
     @singledispatchmethod
     @cache
     def expr_to_z3(self, _: Expr) -> _ValRef:
@@ -216,7 +222,7 @@ class __Context:
             assert isinstance(callee_variant, z3.ArithRef)
             s.add(cur_variant <= callee_variant)
             if s.check() != z3.unsat:
-                assignment.error(f'callee variant `{callee_variant}`is not strictly decreasing\ncounter-example:{s.model()}')
+                assignment.error(f'callee variant `{callee_variant}`is not strictly decreasing\ncounter-example:{self._get_model(s)}')
         if proc.pre == None:
             proc_pre = True
         else:
@@ -264,7 +270,7 @@ class __Context:
         assertion = self.expr_to_z3(assert_.expr)
         s.add(z3.And(post, z3.Not(assertion)))
         if s.check() != z3.unsat:
-            assert_.error(f'assertion does not hold, condition found at assertion: {simplify(post)}\ncounter-example: {s.model()}')
+            assert_.error(f'assertion does not hold, condition found at assertion: {simplify(post)}\ncounter-example: {self._get_model(s)}')
         return post
 
     @propagate.register
@@ -289,14 +295,14 @@ class __Context:
         s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
         if s.check() != z3.unsat:
             supplementary = f'\tpost: {simplify(post)}'
-            while_.body.error(f'invariant and guard negation do not imply post condition.\n{supplementary}\ncounter-example: {s.model()}')
+            while_.body.error(f'invariant and guard negation do not imply post condition.\n{supplementary}\ncounter-example: {self._get_model(s)}')
         body_pre = self.propagate(while_.body, invariant)
         s.reset()
         # (invariant && cond) -> body_pre
         s.add(z3.And(invariant, cond, z3.Not(body_pre)))
         if s.check() != z3.unsat:
             supplementary = f'\tbody pre: {simplify(body_pre)}'
-            while_.body.error(f'invariant and guard do not imply while loop body precondition.\n{supplementary}\ncounter-example: {s.model()}')
+            while_.body.error(f'invariant and guard do not imply while loop body precondition.\n{supplementary}\ncounter-example: {self._get_model(s)}')
         return invariant
 
     def _total_while(self, while_: While, post: z3.BoolRef) -> z3.BoolRef:
@@ -316,7 +322,7 @@ class __Context:
         s.add(z3.And(invariant, z3.Not(cond), z3.Not(post)))
         if s.check() != z3.unsat:
             supplementary = f'\tpost: {simplify(post)}'
-            while_.body.error(f'invariant and guard negation do not imply postcondition.\n{supplementary}\ncounter-example: {s.model()}')
+            while_.body.error(f'invariant and guard negation do not imply postcondition.\n{supplementary}\ncounter-example: {self._get_model(s)}')
         upper = z3.FreshInt('e')
         body_post = z3.And(pre, variant < upper)
         body_pre = self.propagate(while_.body, body_post)
@@ -325,7 +331,7 @@ class __Context:
         s.add(z3.And(pre, cond, variant == upper, z3.Not(body_pre)))
         if s.check() != z3.unsat:
             supplementary = f'\tbody pre: {simplify(body_pre)}'
-            while_.body.error(f'invariant and guard and variant do not imply while body precondition.\n{supplementary}\ncounter-example: {s.model()}')
+            while_.body.error(f'invariant and guard and variant do not imply while body precondition.\n{supplementary}\ncounter-example: {self._get_model(s)}')
         return pre
 
     def declare_proc(self, decl):
