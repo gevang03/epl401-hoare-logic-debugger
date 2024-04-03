@@ -1,0 +1,30 @@
+fn gcd(a, b) := b == 0 ? a : gcd(b, a % b);
+
+#pre a >= 0 && b >= 0
+#post result == gcd(a, b)
+#variant b
+proc calc_gcd_rec(a, b) {
+    if b == 0 {
+        return a;
+    } else {
+        a_ := a % b;
+        g_ := calc_gcd_rec(b, a_);
+        return g_;
+    }
+}
+
+#pre a >= 0 && b >= 0
+#post result == gcd(a, b)
+#variant b
+proc calc_gcd_iter(a, b) {
+    x := a;
+    y := b;
+    #invariant gcd(x, y) == gcd(a, b)
+    #variant y
+    while y != 0 {
+        t := x % y;
+        x := y;
+        y := t;
+    }
+    return x;
+}
