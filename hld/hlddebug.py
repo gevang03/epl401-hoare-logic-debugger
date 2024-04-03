@@ -215,14 +215,14 @@ class __Context:
             if self.current.variant == None:
                 self.current.error('missing variant expression')
             if proc.variant == None:
-                self.current.error('missing variant expression')
+                proc.error('missing variant expression')
             cur_variant = self.expr_to_z3(self.current.variant)
             callee_variant = self.expr_to_z3(proc.variant)
             callee_variant = z3.substitute(callee_variant, subs)
             assert isinstance(callee_variant, z3.ArithRef)
-            s.add(cur_variant <= callee_variant)
-            if s.check() != z3.unsat:
-                assignment.error(f'callee variant `{callee_variant}`is not strictly decreasing\ncounter-example:{self._get_model(s)}')
+            variant_cond = cur_variant > callee_variant
+        else:
+            variant_cond = True
         if proc.pre == None:
             proc_pre = True
         else:
@@ -232,7 +232,7 @@ class __Context:
             proc.error('missing postcondition')
         proc_post = self.expr_to_z3(proc.post)
         proc_post = z3.substitute(proc_post, *subs, (self.result, dest))
-        res = z3.And(proc_pre, z3.ForAll(dest, z3.Implies(proc_post, post)))
+        res = z3.And(proc_pre, variant_cond, z3.ForAll(dest, z3.Implies(proc_post, post)))
         assert isinstance(res, z3.BoolRef)
         return res
 
