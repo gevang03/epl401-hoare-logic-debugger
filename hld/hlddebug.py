@@ -211,7 +211,6 @@ class __Context:
         assert isinstance(self.current, Proc)
         caller = self.current.name.value
         if self.correctness == Correctness.TOTAL and self.call_is_recursive(callee, caller):
-            s = z3.Solver()
             if self.current.variant == None:
                 self.current.error('missing variant expression')
             if proc.variant == None:
@@ -288,6 +287,9 @@ class __Context:
         if while_.invariant == None:
             while_.error('missing invariant condition')
         invariant = self.expr_to_z3(while_.invariant)
+        assert isinstance(self.current, Proc)
+        if self.current.pre != None:
+            invariant = z3.And(invariant, self.expr_to_z3(self.current.pre))
         assert isinstance(invariant, z3.BoolRef)
         cond = self.expr_to_z3(while_.cond)
         s = z3.Solver()
@@ -311,6 +313,9 @@ class __Context:
         if while_.variant == None:
             while_.error('missing variant expression')
         invariant = self.expr_to_z3(while_.invariant)
+        assert isinstance(self.current, Proc)
+        if self.current.pre != None:
+            invariant = z3.And(invariant, self.expr_to_z3(self.current.pre))
         variant = self.expr_to_z3(while_.variant)
         assert isinstance(variant, z3.ArithRef)
         assert isinstance(invariant, z3.BoolRef)
