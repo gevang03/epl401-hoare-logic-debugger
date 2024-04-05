@@ -25,10 +25,10 @@ Single line comments are prefixed by '//', also ommited below.
 ```ebnf
 program = declaration, {declaration};
 
-declaration = procedure | fn;
+declaration = procedure | fn_or_pred;
 
 procedure = [pre], [post], 'proc', identifier, paramlist, block;
-fn = 'fn', ident, paramlist, ':=', expr, ';';
+fn_or_pred = ('fn' | 'pred'), ident, paramlist, ':=', expr, ';';
 
 (* STATEMENTS *)
 statement = ifelse | assert | assignment | while | return;
@@ -46,6 +46,8 @@ expression = primary | ternary_expr;
 (* Matches from keywords are excluded *)
 identifier = (alpha | '_'), {alphanum | '_'};
 call = identifier, '(', [expression, {',', expression}], ')';
+quantified = ('forall' | 'exists'), identifier, {identfier}, '.', expr;
+
 literal = bool | int;
 bool = 'true' | 'false';
 int = digits, {digits};
@@ -72,7 +74,7 @@ rel_expr = add_expr, rel_op, add_expr;
 add_expr = mul_expr, add_op, mul_expr;
 mul_expr = unary_expr, mul_op, unary_expr;
 unary_expr = un_op, primary;
-primary = '(' expression ')' | literal | identifier | call | 'result';
+primary = '(' expression ')' | literal | identifier | call | 'result' | quantified;
 
 rel_op = '<' | '<=' | '==' | '!=' | '>=' | '>';
 add_op = '+' | '-';
