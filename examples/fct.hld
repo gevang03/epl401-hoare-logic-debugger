@@ -2,7 +2,7 @@ fn fct(n) := n <= 0 ? 1 : n * fct(n - 1);
 
 #pre x >= 0
 #post result == fct(x)
-proc calc_fct(x) {
+proc calc_fct_iter(x) {
     y := 1;
     z := 0;
     #invariant z >= 0 && fct(z) == y
@@ -12,4 +12,16 @@ proc calc_fct(x) {
         y := y * z;
     }
     return y;
+}
+
+#pre x >= 0
+#post result == fct(x)
+#variant x
+proc calc_fct_rec(x) {
+  if x == 0 {
+    return 1;
+  } else {
+    y := calc_fct_rec(x-1);
+    return x * y;
+  }
 }

@@ -45,14 +45,17 @@ class __Context:
         self.fns: dict[str, z3.FuncDeclRef] = {}
         self.procs: dict[str, Proc] = {}
 
-    def add_fn(self, fn: Fn):
+    def declare_fn(self, fn: Fn):
+        name = fn.name.value
+        sig = (z3.IntSort() for _ in fn.params)
+        self.fns[name] = z3.RecFunction(name, *sig, z3.IntSort())
+
+    def define_fn(self, fn: Fn):
         self.current = fn
         name = fn.name.value
+        f = self.fns[name]
         self.variables = self.symtab[name]
         params = [z3.Int(param.value) for param in fn.params]
-        sig = (z3.IntSort() for _ in fn.params)
-        f = z3.RecFunction(name, *sig, z3.IntSort())
-        self.fns[fn.name.value] = f
         expr = self.expr_to_z3(fn.expr)
         z3.RecAddDefinition(f, params, expr)
 
@@ -381,7 +384,10 @@ def get_pre(decls: list[Declaration], correctness: Correctness, symtab: dict[str
             ctx.declare_proc(decl)
         else:
             assert isinstance(decl, Fn)
-            ctx.add_fn(decl)
+            ctx.declare_fn(decl)
+    for decl in decls:
+        if isinstance(decl, Fn):
+            ctx.define_fn(decl)
     for decl in decls:
         if isinstance(decl, Proc):
             pres[decl.name.value] = ctx.verify(decl)
