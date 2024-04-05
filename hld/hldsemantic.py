@@ -120,19 +120,20 @@ class __Context:
         name = call.callee.value
         try:
             decl = self.decls[name]
-            if isinstance(decl, Proc):
-                call.error(f'proc `{name} cannot be called in metacondition')
-            fn = decl
-            assert isinstance(fn, Fn)
-            expected = len(fn.params)
-            actual = len(call.args)
-            if expected != actual:
-                call.error(f'fn `{name}` expects {expected} arguments, but was given {actual}')
         except KeyError:
-            call.error(f'fn `{name}` not defined')
+            call.error(f'fn or pred `{name}` not defined')
+        if isinstance(decl, Proc):
+            call.error(f'proc `{name} cannot be called in metacondition')
+        fn_or_pred = decl
+        assert isinstance(fn_or_pred, (Fn, Pred))
+        expected = len(fn_or_pred.params)
+        actual = len(call.args)
+        if expected != actual:
+            t = type(fn_or_pred).__name__
+            call.error(f'{t} `{name}` expects {expected} arguments, but was given {actual}')
         for arg in call.args:
             self.typecheck(arg, ValueType.Int)
-        return ValueType.Int
+        return ValueType.Bool if isinstance(fn_or_pred, Pred) else ValueType.Int
 
     def _typeof_code(self, call: CallExpr) -> ValueType:
         assert self._ctx_is(ContextType.Code)
@@ -160,8 +161,19 @@ class __Context:
     @typeof.register
     def _(self, result: ResultExpr) -> ValueType:
         if not self._ctx_is(ContextType.Postcond):
-            result.error('result expression are not allowed outside of postconditions')
+            result.error('result expressions are not allowed outside of postconditions')
         return ValueType.Int
+
+    @typeof.register
+    def _(self, quantified: QuantifiedExpr) -> ValueType:
+        if not self._ctx_is(ContextType.Metacond):
+            quantified.error('quantified expressions are ont allowed outside of metaconditions')
+        new = self.check_bindings(quantified)
+        cur = self.variables.copy()
+        self.variables.update(new)
+        self.typecheck(quantified.expr, ValueType.Bool)
+        self.variables = cur
+        return ValueType.Bool
 
     @singledispatchmethod
     def check_statement(self, _: Statement):
@@ -237,6 +249,11 @@ class __Context:
         self.check_params(fn)
         self.typecheck_with_ctx(fn.expr, ValueType.Int, ContextType.Metacond)
 
+    @check_declaration.register
+    def _(self, pred: Pred):
+        self.check_params(pred)
+        self.typecheck_with_ctx(pred.expr, ValueType.Bool, ContextType.Metacond)
+
     @singledispatchmethod
     def check_return_end(self, statement: Union[IfElse, Block]):
         raise NotImplementedError
@@ -258,8 +275,17 @@ class __Context:
         self.check_return_end(ifelse.then_block)
         self.check_return_end(ifelse.else_block)
 
+    def check_bindings(self, quantified: QuantifiedExpr):
+        new = {}
+        for binding in quantified.bindings:
+            value = binding.value
+            if value in self.variables:
+                binding.error(f'binding shadowing `{value}`')
+            new[value] = ValueType.Int
+        return new
+
     def check_params(self, decl: Declaration):
-        assert isinstance(decl, (Fn, Proc))
+        assert isinstance(decl, (Fn, Pred, Proc))
         for param in decl.params:
             value = param.value
             if value in self.variables:
@@ -272,13 +298,13 @@ class __Context:
         symtab: dict[str, dict[str, ValueType]] = {}
         call_graph: dict[str, set[str]] = {}
         for decl in decls:
-            assert isinstance(decl, (Fn, Proc))
+            assert isinstance(decl, (Fn, Pred, Proc))
             value = decl.name.value
             if value in self.decls:
                 decl.error(f'duplicate declaration `{value}`')
             self.decls[decl.name.value] = decl
         for decl in decls:
-            assert isinstance(decl, (Fn, Proc))
+            assert isinstance(decl, (Fn, Pred, Proc))
             value = decl.name.value
             self.check_declaration(decl)
             symtab[value] = self.variables

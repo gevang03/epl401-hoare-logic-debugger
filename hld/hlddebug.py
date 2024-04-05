@@ -45,18 +45,19 @@ class __Context:
         self.fns: dict[str, z3.FuncDeclRef] = {}
         self.procs: dict[str, Proc] = {}
 
-    def declare_fn(self, fn: Fn):
-        name = fn.name.value
-        sig = (z3.IntSort() for _ in fn.params)
-        self.fns[name] = z3.RecFunction(name, *sig, z3.IntSort())
+    def declare_fn_or_pred(self, fn_or_pred: Union[Fn, Pred]):
+        name = fn_or_pred.name.value
+        sig = (z3.IntSort() for _ in fn_or_pred.params)
+        rettype = z3.IntSort() if isinstance(fn_or_pred, Fn) else z3.BoolSort()
+        self.fns[name] = z3.RecFunction(name, *sig, rettype)
 
-    def define_fn(self, fn: Fn):
-        self.current = fn
-        name = fn.name.value
+    def define_fn_or_pred(self, fn_or_pred: Union[Fn, Pred]):
+        self.current = fn_or_pred
+        name = fn_or_pred.name.value
         f = self.fns[name]
         self.variables = self.symtab[name]
-        params = [z3.Int(param.value) for param in fn.params]
-        expr = self.expr_to_z3(fn.expr)
+        params = [z3.Int(param.value) for param in fn_or_pred.params]
+        expr = self.expr_to_z3(fn_or_pred.expr)
         z3.RecAddDefinition(f, params, expr)
 
     def _get_model(self, solver: z3.Solver) -> str:
@@ -147,17 +148,28 @@ class __Context:
         return res
 
     @expr_to_z3.register
-    def _(self, call: CallExpr) -> z3.ArithRef:
+    def _(self, call: CallExpr) -> _ValRef:
         name = call.callee.value
         args = (self.expr_to_z3(arg) for arg in call.args)
         f = self.fns[name]
         res = f(*args)
-        assert isinstance(res, z3.ArithRef)
+        assert isinstance(res, (z3.BoolRef, z3.ArithRef))
         return res
 
     @expr_to_z3.register
     def _(self, _: ResultExpr) -> z3.ArithRef:
         return self.result
+
+    @expr_to_z3.register
+    def _(self, quantified: QuantifiedExpr) -> z3.BoolRef:
+        cur = self.variables.copy()
+        vars = [z3.Int(var.value) for var in quantified.bindings]
+        for var in quantified.bindings:
+            self.variables[var.value] = ValueType.Int
+        quantifier = z3.ForAll if quantified.quantifier == 'forall' else z3.Exists
+        e = quantifier(vars, self.expr_to_z3(quantified.expr))
+        self.variables = cur
+        return e
 
     @singledispatchmethod
     def propagate(self, _: Statement, _post: z3.BoolRef) -> z3.BoolRef:
@@ -383,11 +395,11 @@ def get_pre(decls: list[Declaration], correctness: Correctness, symtab: dict[str
         if isinstance(decl, Proc):
             ctx.declare_proc(decl)
         else:
-            assert isinstance(decl, Fn)
-            ctx.declare_fn(decl)
+            assert isinstance(decl, (Pred, Fn))
+            ctx.declare_fn_or_pred(decl)
     for decl in decls:
-        if isinstance(decl, Fn):
-            ctx.define_fn(decl)
+        if isinstance(decl, (Pred, Fn)):
+            ctx.define_fn_or_pred(decl)
     for decl in decls:
         if isinstance(decl, Proc):
             pres[decl.name.value] = ctx.verify(decl)

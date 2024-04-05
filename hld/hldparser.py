@@ -48,7 +48,7 @@ def prefix_ctor(src: str, loc: int, toks: pp.ParseResults) -> PrefixExpr:
 
 keywords = {
     'assert', 'if', 'else', 'proc', 'fn', 'while', 'true', 'false', 'return', 'result',
-    '#pre', '#post', '#invariant', '#variant'
+    'forall', 'exists', 'pred', '#pre', '#post', '#invariant', '#variant'
 }
 kw = {k: pp.Keyword(k) for k in keywords}
 sup_kw = {k: pp.Suppress(v) for k, v in kw.items()}
@@ -68,6 +68,7 @@ left_brace = pp.Suppress('{')
 right_brace = pp.Suppress('}')
 left_paren = pp.Suppress('(')
 right_paren = pp.Suppress(')')
+dot = pp.Suppress('.')
 
 unary_op = pp.one_of('+ - !')
 mul_op = pp.one_of('* / %')
@@ -90,7 +91,9 @@ expr = pp.Forward()
 args = left_paren - pp.Opt(pp.Group(pp.DelimitedList(expr), True), []) - right_paren
 call = identifier - args
 call.set_parse_action(lambda s, loc, toks: CallExpr(s, loc, *toks))
-primary = int_lit | bool_lit | result | identifier + ~left_paren | call
+quantified = (kw['forall'] | kw['exists']) - identifier[1, ...] - dot - expr
+quantified.set_parse_action(lambda s, loc, toks: QuantifiedExpr(s, loc, toks[0], toks[1:-1], toks[-1]))
+primary = quantified | int_lit | bool_lit | result | identifier + ~left_paren | call
 expr <<= pp.infix_notation(primary, assoc_table)
 expr.set_name('expression')
 
@@ -122,11 +125,11 @@ proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) + pp.Opt(variant
 proc.set_parse_action(lambda s, loc, toks: Proc(s, loc, *toks))
 proc.set_name('proc')
 
-fn = sup_kw['fn'] - identifier - params - assign - expr - semi
-fn.set_parse_action(lambda s, loc, toks: Fn(s, loc, *toks))
-fn.set_name('fn')
+fn_or_pred = (kw['fn'] | kw['pred']) - identifier - params - assign - expr - semi
+fn_or_pred.set_parse_action(lambda s, loc, toks: (Fn if toks[0] == 'fn' else Pred)(s, loc, *toks[1:]))
+fn_or_pred.set_name('fn or pred')
 
-decls = proc | fn
+decls = proc | fn_or_pred
 program = decls[1, ...]
 parser = program
 parser.ignore(pp.dbl_slash_comment)

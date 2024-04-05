@@ -93,6 +93,12 @@ class CallExpr(Expr):
     args: list[Expr]
 
 @dataclass(frozen=True, repr=False)
+class QuantifiedExpr(Expr):
+  quantifier: str
+  bindings: list[Identifier]
+  expr: Expr
+
+@dataclass(frozen=True, repr=False)
 class Assignment(Statement):
     dest: Identifier
     value: Expr
@@ -133,6 +139,12 @@ class Proc(Declaration):
 
 @dataclass(frozen=True, repr=False)
 class Fn(Declaration):
+    name: Identifier
+    params: list[Identifier]
+    expr: Expr
+
+@dataclass(frozen=True, repr=False)
+class Pred(Declaration):
     name: Identifier
     params: list[Identifier]
     expr: Expr
