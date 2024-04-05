@@ -25,6 +25,9 @@ class TestHldParser(unittest.TestCase):
     def test_bool_literal_true(self):
         self._test_value(hldparser.bool_lit, 'true', True, hldast.BoolLiteral)
 
+    def test_result(self):
+        self._test(hldparser.result, 'result', hldast.ResultExpr, {})
+
     def test_int_literal(self):
         value = 12345
         self._test_value(hldparser.int_lit, str(value), value, hldast.IntLiteral)
@@ -32,6 +35,14 @@ class TestHldParser(unittest.TestCase):
     def test_identifer(self):
         value = '_ident1'
         self._test_value(hldparser.identifier, value, value, hldast.Identifier)
+
+    def test_call(self):
+        self._test(hldparser.call, 'foo()', hldast.CallExpr, {'callee.value': 'foo'})
+        self._test(hldparser.call, 'bar(1, a)', hldast.CallExpr, {'callee.value': 'bar'})
+
+    def test_quantified(self):
+        self._test(hldparser.quantified, 'forall i. 1', hldast.QuantifiedExpr, {'quantifier' : 'forall'})
+        self._test(hldparser.quantified, 'exists j. j == 1', hldast.QuantifiedExpr, {'quantifier' : 'exists'})
 
     def test_prefix_arith(self):
         self._test(hldparser.expr, '-(a+b)', hldast.PrefixArithmeticExpr, {'op': '-'})
@@ -45,6 +56,8 @@ class TestHldParser(unittest.TestCase):
         self._test(hldparser.expr, '5-(b*3)', hldast.InfixArithmeticExpr, {'op': '-'})
         self._test(hldparser.expr, '(c*3)', hldast.InfixArithmeticExpr, {'op': '*'})
         self._test(hldparser.expr, 'a * c + d', hldast.InfixArithmeticExpr, {'op': '+'})
+        self._test(hldparser.expr, 'e / c', hldast.InfixArithmeticExpr, {'op': '/'})
+        self._test(hldparser.expr, 'd % f', hldast.InfixArithmeticExpr, {'op': '%'})
 
     def test_infix_relational(self):
         self._test(hldparser.expr, 'b<2', hldast.InfixRelationalExpr, {'op': '<'})
@@ -85,3 +98,9 @@ class TestHldParser(unittest.TestCase):
 
     def test_proc(self):
         self._test(hldparser.proc, 'proc foo() {}', hldast.Proc, {'name.value': 'foo'})
+
+    def test_fn(self):
+        self._test(hldparser.fn_or_pred, 'fn foo() := 1;', hldast.Fn, {'name.value': 'foo'})
+
+    def test_pred(self):
+        self._test(hldparser.fn_or_pred, 'pred foo() := false;', hldast.Pred, {'name.value': 'foo'})
