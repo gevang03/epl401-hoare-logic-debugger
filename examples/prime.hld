@@ -1,0 +1,22 @@
+pred prime_upto(n, m) := forall i. 2 <= i && i < m -> n % i != 0;
+pred prime(n) := prime_upto(n, n);
+
+#pre n >= 2
+#post prime(n) ? result == 1 : result == 0
+proc is_prime(n) {
+  i := 2;
+  z := true;
+  #invariant 2 <= i && i <= n
+    && (z ? prime_upto(n, i) : !prime_upto(n, i + 1))
+    && (i < n || z)
+  #variant (z ? 0 : -1) + n - i
+  while i < n && z {
+    r := n % i;
+    if r == 0 {
+      z := false;
+    } else {
+      i := i + 1;
+    }
+  }
+  return z ? 1 : 0;
+}

@@ -95,13 +95,23 @@ class __Context:
             self.compile(expr.left)
             l = len(self.prog)
             self.emit(Opcode.JMP_IF)
+            self.emit(Opcode.POP)
             self.compile(expr.right)
             self.backpatch(l)
-        else:
-            assert expr.op == '&&'
+        elif expr.op == '&&':
             self.compile(expr.left)
             l = len(self.prog)
             self.emit(Opcode.JMP_UNLESS)
+            self.emit(Opcode.POP)
+            self.compile(expr.right)
+            self.backpatch(l)
+        else:
+            assert expr.op == '->'
+            self.compile(expr.left)
+            self.emit(Opcode.NOT)
+            l = len(self.prog)
+            self.emit(Opcode.JMP_IF)
+            self.emit(Opcode.POP)
             self.compile(expr.right)
             self.backpatch(l)
 
@@ -110,10 +120,12 @@ class __Context:
         self.compile(ternary.cond)
         l0 = len(self.prog)
         self.emit(Opcode.JMP_UNLESS)
+        self.emit(Opcode.POP)
         self.compile(ternary.then_expr)
         l1 = len(self.prog)
         self.emit(Opcode.JMP)
         self.backpatch(l0)
+        self.emit(Opcode.POP)
         self.compile(ternary.else_expr)
         self.backpatch(l1)
 
@@ -140,10 +152,12 @@ class __Context:
         self.compile(ifelse.cond)
         l0 = len(self.prog)
         self.emit(Opcode.JMP_UNLESS)
+        self.emit(Opcode.POP)
         self.compile(ifelse.then_block)
         l1 = len(self.prog)
         self.emit(Opcode.JMP)
         self.backpatch(l0)
+        self.emit(Opcode.POP)
         self.compile(ifelse.else_block)
         self.backpatch(l1)
 
@@ -153,9 +167,11 @@ class __Context:
         self.compile(while_.cond)
         l1 = len(self.prog)
         self.emit(Opcode.JMP_UNLESS)
+        self.emit(Opcode.POP)
         self.compile(while_.body)
         self.emit(Opcode.JMP, l0)
         self.backpatch(l1)
+        self.emit(Opcode.POP)
 
     @compile.register
     def _(self, block: Block):

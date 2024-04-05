@@ -30,6 +30,7 @@ class Opcode(IntEnum):
     FRAME = auto()
     CALL = auto()       # calls[-1] = ip+1; ip = arg
     RET = auto()        # calls[-1] = ip
+    POP = auto()
 
 Inst = NamedTuple('Inst', op=Opcode, arg=int)
 
@@ -97,11 +98,11 @@ class Vm:
             ip = inst.arg - 1
         def jmp_if():
             nonlocal ip
-            if stack.pop() != 0:
+            if stack[-1] != 0:
                 ip = inst.arg - 1
         def jmp_unless():
             nonlocal ip
-            if stack.pop() == 0:
+            if stack[-1] == 0:
                 ip = inst.arg - 1
         def assert_():
             nonlocal ip
@@ -130,6 +131,8 @@ class Vm:
                 stack.append(value)
             except IndexError:
                 ip = length
+        def pop():
+            stack.pop()
         code: list = [None] * len(Opcode)
         code[Opcode.NOP] = nop
         code[Opcode.NEG] = neg
@@ -156,6 +159,7 @@ class Vm:
         code[Opcode.FRAME] = frame
         code[Opcode.CALL] = call
         code[Opcode.RET] = ret
+        code[Opcode.POP] = pop
         while ip < length:
             inst = prog[ip]
             code[inst.op]()
