@@ -70,6 +70,7 @@ class TestHldParser(unittest.TestCase):
     def test_infix_logical(self):
         self._test(hldparser.expr, 'p || q', hldast.InfixLogicalExpr, {'op': '||'})
         self._test(hldparser.expr, 'p1 && p2', hldast.InfixLogicalExpr, {'op': '&&'})
+        self._test(hldparser.expr, 'p -> !q', hldast.InfixLogicalExpr, {'op': '->'})
         self._test(hldparser.expr, 'p && q || r', hldast.InfixLogicalExpr, {'op': '||'})
 
     def test_ternary(self):

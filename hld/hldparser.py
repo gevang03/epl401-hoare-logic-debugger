@@ -6,7 +6,7 @@ from hldast import *
 pp.ParserElement.enable_packrat()
 
 _infix_arith_ops = { '+', '-', '*', '/', '%' }
-_infix_log_ops = { '&&', '||' }
+_infix_log_ops = { '&&', '||', '->' }
 _infix_rel_ops = { '<', '<=', '==', '!=', '>', '>=' }
 
 def ternary_ctor(src: str, loc: int, toks: pp.ParseResults) -> TernaryExpr:
@@ -76,6 +76,7 @@ add_op = pp.one_of('+ -')
 cmp_op = pp.one_of('<= < >= > == !=')
 and_op = pp.Literal('&&')
 or_op = pp.Literal('||')
+impl_op = pp.Literal('->')
 ternary_op = (pp.Literal('?'), pp.Literal(':'))
 
 assoc_table = [
@@ -85,6 +86,7 @@ assoc_table = [
     (cmp_op, 2, pp.OpAssoc.LEFT, infix_ctor),
     (and_op, 2, pp.OpAssoc.LEFT, infix_ctor),
     (or_op, 2, pp.OpAssoc.LEFT, infix_ctor),
+    (impl_op, 2, pp.OpAssoc.LEFT, infix_ctor),
     (ternary_op, 3, pp.OpAssoc.RIGHT, ternary_ctor),
 ]
 expr = pp.Forward()

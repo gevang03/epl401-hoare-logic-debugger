@@ -67,7 +67,8 @@ lower = ? letters a to z ?;
 upper = ? letters A to Z ?;
 digits = ? digits 0 to 9 ?;
 
-ternary_expr = or_expr, '?', ternary_expr, ':', ternary_expr;
+ternary_expr = impl_expr, '?', ternary_expr, ':', ternary_expr;
+impl_expr = or_expr, '||', or_expr;
 or_expr = and_expr, '||', and_expr;
 and_expr = rel_expr, '&&', rel_expr;
 rel_expr = add_expr, rel_op, add_expr;

@@ -14,7 +14,7 @@ _infix_arith_ops = {
     '/': operator.truediv, '%': operator.mod
 }
 
-_infix_logical_ops = { '&&': z3.And, '||': z3.Or }
+_infix_logical_ops = { '&&': z3.And, '||': z3.Or, '->': z3.Implies }
 _infix_rel_ops = {
     '<=': operator.le, '<': operator.lt,
     '>=': operator.ge, '>': operator.gt,
