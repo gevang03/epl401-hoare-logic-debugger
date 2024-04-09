@@ -92,15 +92,14 @@ def debug(filename: str, correctness_str: str):
     for sym, pre in pres.items():
         print(f'proc {sym}(...) {{...}} requires `{pre}`')
 
-
 def ai(filename: str, correctness_str: str, interactive: bool) -> Optional[int]:
+    import os
+    import hldai
     import hlddebug
-
-    def ask(filename: str, err: str) -> Optional[str]:
-        import hldai
-        import openai
+    import openai
+    def ask(filename: str, err: str, client: openai.Client, assistant, thread) -> Optional[str]:
         try:
-            return hldai.ask_assistant(filename, err)
+            return hldai.ask_assistant(filename, err, client, assistant, thread)
         except openai.APIConnectionError as e:
             print('The openai server could not be reached', file=sys.stderr)
             print(e.__cause__, file=sys.stderr)  # an underlying Exception, likely raised within httpx.
@@ -109,25 +108,14 @@ def ai(filename: str, correctness_str: str, interactive: bool) -> Optional[int]:
         except openai.APIStatusError as e:
             print(f'openai: {e.status_code}: {e.response}', file=sys.stderr)
 
-    def update_program(response: str, filename: str) -> bool:
-        try:
-            start = response.index('```')
-            end = response.index('```', start + 4)
-        except IndexError:
-            return False
-        new_program = response[start+4:end-1]
-        yn = input('Apply proposed changes and retry? (Y/n) ')
-        while True:
-            if yn in ['y', 'Y']:
-                with open(filename, 'w') as f:
-                    f.write(new_program)
-                return True
-            elif yn in ['n', 'N']:
-                return False
-            else:
-                yn = input('invalid input (Y/n) ')
-
     correctness = hlddebug.Correctness(correctness_str)
+    client = openai.OpenAI()
+    assistant_id = os.getenv('OPENAI_ASSISTANT_ID')
+    if assistant_id == None:
+        print('OPENAI_ASSISTANT_ID must be set', file=sys.stderr)
+        return 1
+    assistant = client.beta.assistants.retrieve(assistant_id)
+    thread = client.beta.threads.create()
     while True:
         decls = hldparser.parser.parse_file(filename, parse_all=True).as_list()
         assert isinstance(decls, list)
@@ -138,11 +126,11 @@ def ai(filename: str, correctness_str: str, interactive: bool) -> Optional[int]:
                 print(f'proc {sym}(...) {{...}} requires `{pre}`')
             return 0
         except hldast.HLDError as e:
-            response = ask(filename, e.args[0])
+            response = ask(filename, e.args[0], client, assistant, thread)
             if response is None:
                 return 1
             print(response)
-            if not interactive or not update_program(response, filename):
+            if not interactive or not hldai.update_program(response, filename):
                 return 1
 
 def main(argv: list[str]) -> Optional[int]:

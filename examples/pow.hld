@@ -1,0 +1,24 @@
+fn pow(a, n) := n <= 0 ? 1
+    : n % 2 == 0 ? pow(a * a, n / 2)
+    : a * pow(a, n - 1);
+
+#pre n >= 0
+#post result == pow(a, n)
+proc calc_pow(a, n) {
+    b := a;
+    p := 1;
+    e := n;
+    #invariant e >= 0 && pow(a, n) == p * pow(b, e)
+    #variant e
+    while e != 0 {
+        c := e % 2;
+        if c == 0 {
+            b := b * b;
+            e := e / 2;
+        } else {
+            p := p * b;
+            e := e - 1;
+        }
+    }
+    return p;
+}
