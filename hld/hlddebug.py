@@ -280,12 +280,10 @@ class __Context:
 
     @propagate.register
     def _(self, assert_: Assert, post: z3.BoolRef) -> z3.BoolRef:
-        s = z3.Solver()
         assertion = self.expr_to_z3(assert_.expr)
-        s.add(z3.And(post, z3.Not(assertion)))
-        if s.check() != z3.unsat:
-            assert_.error(f'assertion does not hold, condition found at assertion: {simplify(post)}\ncounter-example: {self._get_model(s)}')
-        return post
+        res = z3.And(post, assertion)
+        assert isinstance(res, z3.BoolRef)
+        return res
 
     @propagate.register
     def _(self, return_: Return, _: z3.BoolRef) -> z3.BoolRef:

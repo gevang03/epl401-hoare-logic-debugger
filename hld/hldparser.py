@@ -127,11 +127,16 @@ proc = pp.Opt(precondition, None) + pp.Opt(postcondition, None) + pp.Opt(variant
 proc.set_parse_action(lambda s, loc, toks: Proc(s, loc, *toks))
 proc.set_name('proc')
 
-fn_or_pred = (kw['fn'] | kw['pred']) - identifier - params - assign - expr - semi
-fn_or_pred.set_parse_action(lambda s, loc, toks: (Fn if toks[0] == 'fn' else Pred)(s, loc, *toks[1:]))
-fn_or_pred.set_name('fn or pred')
+fn_or_pred_body = identifier - params - assign - expr - semi
+fn = sup_kw['fn'] - fn_or_pred_body
+fn.set_name('fn')
+fn.set_parse_action(lambda s, loc, toks: Fn(s, loc, *toks))
 
-decls = proc | fn_or_pred
+pred = sup_kw['pred'] - fn_or_pred_body
+pred.set_name('pred')
+pred.set_parse_action(lambda s, loc, toks: Pred(s, loc, *toks))
+
+decls = fn | pred | proc
 program = decls[1, ...]
 parser = program
 parser.ignore(pp.dbl_slash_comment)

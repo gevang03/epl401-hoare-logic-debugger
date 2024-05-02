@@ -27,7 +27,7 @@ program = declaration, {declaration};
 
 declaration = procedure | fn_or_pred;
 
-procedure = [pre], [post], 'proc', identifier, paramlist, block;
+procedure = [pre], [post], [variant], 'proc', identifier, paramlist, block;
 fn_or_pred = ('fn' | 'pred'), ident, paramlist, ':=', expr, ';';
 
 (* STATEMENTS *)
@@ -158,10 +158,9 @@ $$
 $$
 \frac
 {
-    \phi \to \psi
 }
 {
-    \{\phi\}\; \texttt{assert}\; \psi \{\phi\}
+    \{\phi\wedge\psi\}\; \texttt{assert}\; \phi \; \{\psi\}
 }
 $$
 

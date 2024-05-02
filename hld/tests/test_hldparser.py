@@ -101,7 +101,7 @@ class TestHldParser(unittest.TestCase):
         self._test(hldparser.proc, 'proc foo() {}', hldast.Proc, {'name.value': 'foo'})
 
     def test_fn(self):
-        self._test(hldparser.fn_or_pred, 'fn foo() := 1;', hldast.Fn, {'name.value': 'foo'})
+        self._test(hldparser.fn, 'fn foo() := 1;', hldast.Fn, {'name.value': 'foo'})
 
     def test_pred(self):
-        self._test(hldparser.fn_or_pred, 'pred foo() := false;', hldast.Pred, {'name.value': 'foo'})
+        self._test(hldparser.pred, 'pred foo() := false;', hldast.Pred, {'name.value': 'foo'})
