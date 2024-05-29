@@ -29,6 +29,10 @@ correctness (termination)
 
 > Run `./hld/run.py --run 'f x y' FILE` to execute procedure f with arguments x and y.
 
+> Run `./hld/run.py --ai FILE` to ask GPT assistant about error
+
+> Run `./hld/run.py --ai --interactive FILE` to interactively apply GPT assistant's changes
+
 > Run `./hld/run.py -h` for help.
 
 ## Language
@@ -43,7 +47,7 @@ Only two value types exist in HLD:
 The following prefix/infix operators are defined with the same meaning, precedence and associativity as in [c or java](https://en.cppreference.com/w/c/language/operator_precedence):
 
 * Arithmetic: `+, -, *, /, %`
-* Boolean: `!, &&, ||`
+* Boolean: `!, &&, ||, ->`
 * Relational: `<, <=, ==, !=, >=, >`
 * Conditional: `?:`
 
@@ -98,7 +102,7 @@ proc foo() {
 ```
 
 assert statements: must be supplied a boolean condition which should evaluate to true for every valid execution of a program.
-```rs
+```java
 assert x > 0;
 ```
 
@@ -165,9 +169,14 @@ proc sum(n) {
 }
 ```
 
-### Functions
-Functions are used to define other specifications, that may require recursion to do so, for example.
-Their body consists of a single expression. Functions cannot be called inside of a procedure.
+### Functions and Predicates
+Functions and predicates are used to define other specifications, that may require recursion to do so, for example.
+Their body consists of a single integral or Boolean expression respectively. Functions and predicates cannot be called inside of a procedure.
+
+```rs
+// example predicate for divides operator 
+pred divides(a, b) := b % a == 0;
+```
 
 ```rs
 // 'equivalent' to:
@@ -192,6 +201,13 @@ proc calc_fct(x) {
     return x * y;
   }
 }
+```
+
+### Quantified Expressions
+Quantified expressions using the forall end exists keyword can be used in specification if necessary. Quantified expressions can bind multiple variables (`forall x. forall y. p(x, y) == forall x y. p(x, y)`).
+
+```rs
+pred prime(n) := n > 1 && forall i. 2 <= i && i < n -> n % i != 0;
 ```
 
 ## Some tips on using the HLD tool
